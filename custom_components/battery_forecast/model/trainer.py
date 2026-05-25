@@ -5,13 +5,13 @@ from __future__ import annotations
 import base64
 import logging
 import pickle
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Literal
 
 import numpy as np
 
-from .features import load_training_data
+from .features import compute_hourly_house_kw_profile, load_training_data
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,6 +55,7 @@ class ModelBundle:
     mae_kwh: float
     rmse_kwh: float
     r2: float
+    hourly_house_kw: list[float] = field(default_factory=lambda: [float("nan")] * 24)
     pipeline: Any | None = None
     numpy_model: NumpyRegressionModel | None = None
 
@@ -237,6 +238,7 @@ def _fit_impl(
     min_samples: int,
     threshold: float,
     feature_names: list[str],
+    sample_hours: list,
 ) -> ModelBundle:
     _LOGGER.info(
         "Battery Forecast: training started — %s samples, %s features",
@@ -261,27 +263,33 @@ def _fit_impl(
         len(y_val),
     )
 
+    hourly_profile = compute_hourly_house_kw_profile(X, feature_names, sample_hours)
+
     if _sklearn_available():
         _LOGGER.info("Battery Forecast: fitting sklearn HistGradientBoostingRegressor")
-        return _fit_sklearn(
+        bundle = _fit_sklearn(
             X_train, y_train, w_train, X_val, y_val, feature_names, threshold, len(y)
         )
-
-    _LOGGER.warning(
-        "scikit-learn not found — using numpy linear model. %s", SKLEARN_INSTALL_HINT
-    )
-    _LOGGER.info("Battery Forecast: fitting weighted linear model (numpy)")
-    return _fit_numpy(
-        X_train, y_train, w_train, X_val, y_val, feature_names, threshold, len(y)
-    )
+    else:
+        _LOGGER.warning(
+            "scikit-learn not found — using numpy linear model. %s", SKLEARN_INSTALL_HINT
+        )
+        _LOGGER.info("Battery Forecast: fitting weighted linear model (numpy)")
+        bundle = _fit_numpy(
+            X_train, y_train, w_train, X_val, y_val, feature_names, threshold, len(y)
+        )
+    bundle.hourly_house_kw = hourly_profile
+    return bundle
 
 
 async def async_train_model(hass: Any, config: dict[str, Any]) -> ModelBundle:
     """Load data and train model."""
     min_samples = int(config.get("min_training_samples", 168))
     threshold = float(config.get("importance_threshold", 0.005))
-    X, y, weights, feature_names, _hours = await load_training_data(hass, config)
-    return _fit_impl(X, y, weights, min_samples, threshold, feature_names)
+    X, y, weights, feature_names, sample_hours = await load_training_data(hass, config)
+    return _fit_impl(
+        X, y, weights, min_samples, threshold, feature_names, sample_hours
+    )
 
 
 def bundle_to_storage(bundle: ModelBundle) -> dict[str, Any]:
@@ -301,6 +309,7 @@ def bundle_to_storage(bundle: ModelBundle) -> dict[str, Any]:
         "mae_kwh": bundle.mae_kwh,
         "rmse_kwh": bundle.rmse_kwh,
         "r2": bundle.r2,
+        "hourly_house_kw": bundle.hourly_house_kw,
     }
 
 
@@ -328,6 +337,7 @@ def bundle_from_storage(data: dict[str, Any]) -> ModelBundle:
         mae_kwh=float(data["mae_kwh"]),
         rmse_kwh=float(data.get("rmse_kwh", 0)),
         r2=float(data.get("r2", 0)),
+        hourly_house_kw=list(data.get("hourly_house_kw", [float("nan")] * 24)),
     )
 
 

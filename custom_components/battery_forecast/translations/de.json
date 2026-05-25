@@ -23,9 +23,9 @@
       },
       "loads": {
         "title": "Verbraucher",
-        "description": "Hausverbrauch und optionale Wärmepumpe.",
+        "description": "Gesamter Hausverbrauch (Momentanleistung), nicht die Netzleistung am Zähler. Beispiel: sensor.momentanleistung_haus_3 — nicht sensor.gesamtverbrauch_haus_2 (Netz kann bei PV/Batterie nahe 0 W sein).",
         "data": {
-          "house_power": "Haus-/Netzbezugsleistung (W)",
+          "house_power": "Hausverbrauch / Momentanleistung (W)",
           "heat_pump_power": "Wärmepumpen-Leistung (W, optional)"
         }
       },
@@ -63,7 +63,8 @@
     "error": {
       "cannot_connect": "Entities konnten nicht validiert werden.",
       "invalid_entity": "Entity nicht gefunden.",
-      "missing_required": "Batterie SOC, Kapazität, Leistung und Hausleistung sind Pflicht."
+      "missing_required": "Batterie SOC, Kapazität, Leistung und Hausleistung sind Pflicht.",
+      "house_power_is_grid": "Das sieht nach Netz-/Zählerleistung aus, nicht nach Gesamt-Hausverbrauch. Bitte z. B. sensor.momentanleistung_haus_3 wählen (nicht sensor.gesamtverbrauch_haus_2)."
     },
     "abort": {
       "already_configured": "Bereits konfiguriert."

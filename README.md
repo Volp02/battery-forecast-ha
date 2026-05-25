@@ -100,7 +100,7 @@ Until then: use numpy and watch **Settings → System → Logs** (filter `batter
 |------|-------------|
 | Battery | SOC (%), capacity (kWh), power (W); optional charge/discharge energy |
 | Solar | PV power; optional forecast today/tomorrow (e.g. Forecast.Solar, Solcast) |
-| Loads | House/grid power (required); optional heat pump |
+| Loads | **House** instant power (required, not grid import); optional heat pump |
 | Environment | Outdoor temperature; optional weather entity |
 | Features | Optional list of power/energy sensors (EV, boiler, …) |
 | ML | Empty SOC %, training days (365), half-life, horizon, intervals |
@@ -111,7 +111,8 @@ Until then: use numpy and watch **Settings → System → Logs** (filter `batter
 |------|---------|
 | SOC | `sensor.battery_soc` |
 | Power | `sensor.battery_power` (W, + = charging) |
-| House | `sensor.grid_import_power` or `sensor.home_consumption` |
+| House load | `sensor.momentanleistung_haus_3` (total home consumption) |
+| Grid (do **not** use for house) | `sensor.gesamtverbrauch_haus_2` — near 0 W when PV/battery cover load |
 | PV | `sensor.solar_power` |
 | Forecast | `sensor.forecast_today` / `sensor.solcast_pv_forecast_forecast_today` |
 | Heat pump | `sensor.heat_pump_power` |
@@ -160,7 +161,7 @@ After upgrading from older builds, remove stale `sensor.battery_forecast` / `_2`
 
 Attributes include `model_type` (`numpy` / `sklearn`), `confidence`, `mae_kwh`, `model_trained_at`, `feature_importances`, and `simulation_steps` (first 24h).
 
-**ML note:** Training uses the **house/grid meter** as total load. Optional feature sensors (washer, dryer, EV, …) are **supplementary** — you can use zero or a few; the model must not depend on them. They are **not** added on top of house power (no double counting). At **forecast** time those optional sensors are treated as **off (0 W)** for all future hours (we do not know if the washer will run); **house power**, time-of-day, heat pump, PV, and temperature drive the prediction.
+**ML note:** Training uses the **house consumption** sensor (`house_power`), **not** grid import. Optional feature sensors (washer, dryer, EV, …) are **supplementary** — you can use zero or a few; the model must not depend on them. They are **not** added on top of house power (no double counting). At **forecast** time those optional sensors are treated as **off (0 W)** for all future hours (we do not know if the washer will run); **house power**, time-of-day, heat pump, PV, and temperature drive the prediction.
 
 ### Outdoor temperature and weather
 
@@ -187,7 +188,7 @@ Battery Forecast: train complete — model=numpy mae=… kWh
 
 - Ensure **statistics** are enabled for power sensors (default for `state_class: measurement`).
 - **1 year** of long-term data is enough for seasonal patterns; older data is not required.
-- **Feature sensors are optional.** House/grid power alone is enough. Add at most a few large loads (heat pump, EV) if you want; omit washer/dryer unless you need them for training hints — they must not be required for a sensible forecast.
+- **Feature sensors are optional.** House consumption power alone is enough. Add at most a few large loads (heat pump, EV) if you want; omit washer/dryer unless you need them for training hints — they must not be required for a sensible forecast.
 - If training fails with “not enough samples”, reduce `min_training_samples` or check entity history in **History** graph.
 
 ## Manual test checklist

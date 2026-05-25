@@ -23,9 +23,9 @@
       },
       "loads": {
         "title": "Loads",
-        "description": "House consumption and optional heat pump.",
+        "description": "Total house load (instant power), not grid import at the meter. Example: sensor.momentanleistung_haus_3 — not sensor.gesamtverbrauch_haus_2 (grid can be ~0 W when PV/battery cover the home).",
         "data": {
-          "house_power": "House / grid consumption power (W)",
+          "house_power": "House consumption / instant power (W)",
           "heat_pump_power": "Heat pump power (W, optional)"
         }
       },
@@ -63,7 +63,8 @@
     "error": {
       "cannot_connect": "Failed to validate entities.",
       "invalid_entity": "Entity not found.",
-      "missing_required": "Battery SOC, capacity, power and house power are required."
+      "missing_required": "Battery SOC, capacity, power and house power are required.",
+      "house_power_is_grid": "This looks like grid/meter power, not total house load. Use e.g. sensor.momentanleistung_haus_3 (not sensor.gesamtverbrauch_haus_2)."
     },
     "abort": {
       "already_configured": "Already configured."

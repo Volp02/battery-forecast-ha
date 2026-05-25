@@ -23,9 +23,9 @@
       },
       "loads": {
         "title": "Loads",
-        "description": "House consumption and optional heat pump.",
+        "description": "Total house load (instant power), not grid import at the meter.",
         "data": {
-          "house_power": "House / grid consumption power (W)",
+          "house_power": "House consumption / instant power (W)",
           "heat_pump_power": "Heat pump power (W, optional)"
         }
       },

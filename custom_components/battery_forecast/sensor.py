@@ -19,8 +19,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTR_CONFIDENCE,
+    ATTR_EMPTY_WITHIN_HORIZON,
+    ATTR_FORECAST_HORIZON_HOURS,
+    ATTR_HOUSE_POWER_ENTITY,
     ATTR_NET_ENERGY_NEXT_HOUR_KWH,
     ATTR_SIMULATION_STEPS,
+    ATTR_SOC_AT_HORIZON,
     DOMAIN,
     SENSOR_TYPE_EMPTY_AT,
     SENSOR_TYPE_HOURS_REMAINING,
@@ -28,6 +32,7 @@ from .const import (
     SENSOR_TYPE_PREDICTED_SOC,
 )
 from .coordinator import BatteryForecastCoordinator
+from .helpers import get_config
 from .model.simulator import ForecastResult
 
 # Stable entity_id slugs (sensor.battery_empty_at, …)
@@ -131,6 +136,13 @@ class BatteryForecastSensor(CoordinatorEntity[BatteryForecastCoordinator], Senso
             return attrs or None
         attrs[ATTR_CONFIDENCE] = data.confidence
         attrs[ATTR_NET_ENERGY_NEXT_HOUR_KWH] = data.net_load_next_hour_kwh
+        attrs[ATTR_EMPTY_WITHIN_HORIZON] = data.empty_within_horizon
+        attrs[ATTR_SOC_AT_HORIZON] = data.soc_at_horizon
+        config = get_config(self.coordinator.hass, self.coordinator.config_entry)
+        attrs[ATTR_FORECAST_HORIZON_HOURS] = int(
+            config.get("forecast_horizon_hours", 48)
+        )
+        attrs[ATTR_HOUSE_POWER_ENTITY] = config.get("house_power")
         if self.entity_description.key == SENSOR_TYPE_EMPTY_AT:
             attrs[ATTR_SIMULATION_STEPS] = data.simulation_steps[:24]
         return attrs

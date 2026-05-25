@@ -79,6 +79,32 @@ def _validate_entity(hass: HomeAssistant, entity_id: str | None) -> None:
             raise ValueError(f"invalid_entity: {entity_id}")
 
 
+def _is_likely_grid_not_house(entity_id: str) -> bool:
+    """Warn when users pick grid import instead of total house load."""
+    eid = entity_id.lower()
+    if any(
+        hint in eid
+        for hint in (
+            "momentanleistung",
+            "hausverbrauch",
+            "home_consumption",
+            "house_consumption",
+        )
+    ):
+        return False
+    return any(
+        hint in eid
+        for hint in (
+            "gesamtverbrauch",
+            "grid_import",
+            "netzbezug",
+            "strombezug",
+            "grid_power",
+            "net_power",
+        )
+    )
+
+
 class BatteryForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Battery Forecast."""
 
@@ -136,9 +162,14 @@ class BatteryForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_loads(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
-            self._data.update({k: _optional_entity(v) for k, v in user_input.items()})
-            return await self.async_step_environment()
+            house = user_input.get(CONF_HOUSE_POWER)
+            if house and _is_likely_grid_not_house(house):
+                errors[CONF_HOUSE_POWER] = "house_power_is_grid"
+            if not errors:
+                self._data.update({k: _optional_entity(v) for k, v in user_input.items()})
+                return await self.async_step_environment()
         return self.async_show_form(
             step_id="loads",
             data_schema=vol.Schema(
@@ -147,6 +178,7 @@ class BatteryForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_HEAT_PUMP_POWER): POWER_SENSOR,
                 }
             ),
+            errors=errors,
         )
 
     async def async_step_environment(

@@ -401,13 +401,16 @@ def build_inference_features(
     horizon_hours: int,
     *,
     outdoor_temp: float | None,
-    house_kw: float,
+    hourly_house_kw: list[float] | None,
     heat_pump_kw: float,
     pv_kw: float,
     feature_entities: list[str],
     feature_names: list[str],
 ) -> np.ndarray:
     """Build feature matrix for future hours.
+
+    Uses the trained **hourly house_kw profile** (not a single live snapshot) so a
+    quiet moment does not zero out the whole night forecast.
 
     Optional per-device power sensors are set to 0 for all future hours (unknown
     whether washer/EV/etc. will run). Training still uses their historical hourly
@@ -417,6 +420,10 @@ def build_inference_features(
     t = _floor_hour(base_time)
     for i in range(horizon_hours):
         hour = t + timedelta(hours=i)
+        if hourly_house_kw and len(hourly_house_kw) == 24:
+            house_kw = hourly_house_kw[hour.hour]
+        else:
+            house_kw = float("nan")
         row_dict = {
             "hour_sin": math.sin(2 * math.pi * hour.hour / 24),
             "hour_cos": math.cos(2 * math.pi * hour.hour / 24),
@@ -434,6 +441,34 @@ def build_inference_features(
         row = [row_dict.get(name, float("nan")) for name in feature_names]
         rows.append(row)
     return np.array(rows, dtype=np.float64)
+
+
+def compute_hourly_house_kw_profile(
+    X: np.ndarray,
+    feature_names: list[str],
+    sample_hours: list[datetime],
+) -> list[float]:
+    """Median house_kw per clock hour from training data (for inference)."""
+    if "house_kw" not in feature_names or len(sample_hours) != len(X):
+        return [float("nan")] * 24
+    idx = feature_names.index("house_kw")
+    buckets: list[list[float]] = [[] for _ in range(24)]
+    all_vals: list[float] = []
+    for i, hour_dt in enumerate(sample_hours):
+        val = X[i, idx]
+        if val is None or (isinstance(val, float) and math.isnan(val)):
+            continue
+        v = float(val)
+        buckets[hour_dt.hour].append(v)
+        all_vals.append(v)
+    fallback = float(np.median(all_vals)) if all_vals else float("nan")
+    profile: list[float] = []
+    for h in range(24):
+        if buckets[h]:
+            profile.append(float(np.median(buckets[h])))
+        else:
+            profile.append(fallback)
+    return profile
 
 
 async def load_training_data(

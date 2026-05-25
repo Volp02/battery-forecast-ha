@@ -24,6 +24,8 @@ class ForecastResult:
 
     empty_at: datetime | None
     hours_remaining: float | None
+    empty_within_horizon: bool
+    soc_at_horizon: float | None
     predicted_soc_1h: float | None
     net_load_next_hour_kwh: float | None
     confidence: float
@@ -142,6 +144,8 @@ def simulate_soc(
         return ForecastResult(
             empty_at=None,
             hours_remaining=None,
+            empty_within_horizon=False,
+            soc_at_horizon=None,
             predicted_soc_1h=None,
             net_load_next_hour_kwh=load_kwh_per_hour[0] if load_kwh_per_hour else None,
             confidence=0.0,
@@ -166,9 +170,13 @@ def simulate_soc(
         if empty_at is None and soc <= empty_soc_percent:
             empty_at = step_time
 
-    hours_remaining = None
+    soc_at_horizon = steps[-1]["soc"] if steps else current_soc
+    empty_within_horizon = empty_at is not None
     if empty_at is not None:
         hours_remaining = (empty_at - start_time).total_seconds() / 3600.0
+    else:
+        # Battery still above threshold after horizon — show horizon as lower bound.
+        hours_remaining = float(horizon_hours)
 
     predicted_soc_1h = steps[0]["soc"] if len(steps) > 1 else (steps[0]["soc"] if steps else current_soc)
     if len(steps) >= 2:
@@ -177,6 +185,8 @@ def simulate_soc(
     return ForecastResult(
         empty_at=empty_at,
         hours_remaining=hours_remaining,
+        empty_within_horizon=empty_within_horizon,
+        soc_at_horizon=soc_at_horizon,
         predicted_soc_1h=predicted_soc_1h,
         net_load_next_hour_kwh=load_kwh_per_hour[0] if load_kwh_per_hour else None,
         confidence=0.0,
@@ -203,7 +213,6 @@ def run_forecast(
         if state:
             outdoor_temp = _parse_float(state.state)
 
-    house_kw = _read_entity_kw(hass, config["house_power"])
     hp_kw = _read_entity_kw(hass, config.get("heat_pump_power"))
     pv_kw = _read_entity_kw(hass, config.get("pv_power"))
 
@@ -213,7 +222,7 @@ def run_forecast(
         now,
         horizon,
         outdoor_temp=outdoor_temp,
-        house_kw=house_kw,
+        hourly_house_kw=bundle.hourly_house_kw,
         heat_pump_kw=hp_kw,
         pv_kw=pv_kw,
         feature_entities=feature_entities,
