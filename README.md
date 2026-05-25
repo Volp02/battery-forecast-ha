@@ -1,14 +1,15 @@
 # Battery Forecast (Home Assistant)
 
-HACS-ready custom integration that predicts when your home battery will reach a low state of charge, using **machine learning** on Home Assistant statistics (short-term + long-term) and optional recorder data.
+HACS-ready custom integration that predicts when your home battery will reach a low state of charge, using **machine learning** (numpy) on Home Assistant statistics (short-term + long-term) and optional recorder data.
 
 ## Features
 
 - **Config flow** with entity selectors for battery, PV, house load, heat pump, weather, and up to 30 optional feature sensors
-- **ML model** trained on up to **365 days** of hourly data (numpy by default, optional sklearn)
+- **ML model** trained on up to **365 days** of hourly data (weighted linear regression via numpy)
 - **Weighted training**: recent weeks count more (configurable half-life, default 90 days)
 - **Hybrid forecast**: ML predicts hourly net load → SOC simulation with solar forecast entities
 - **Sensors**: empty-at timestamp, hours remaining, min SOC in 12h, predicted SOC in 1h, net load next hour
+- **Auto-retrain** when forecast SOC error exceeds a threshold (no external automation required)
 - **Services**: `battery_forecast.train`, `battery_forecast.reload_model`
 
 ## Requirements
@@ -16,221 +17,24 @@ HACS-ready custom integration that predicts when your home battery will reach a 
 - Home Assistant **2025.5+**
 - Working **Recorder** and **Statistics** for your entities
 - Long-term statistics retention ≥ your training window (default **365 days**)
-- Python package (installed automatically by HA): `numpy`
-- **`scikit-learn`** optional — HA often **cannot** auto-install it (Python 3.14 / HA OS missing wheels). Manual install via SSH if you want `model_type: sklearn`
+- Python package (installed automatically by HA): **numpy**
 
 ## Installation
 
 ### HACS
 
 1. **HACS → Settings → Custom repositories** → URL: `https://github.com/Volp02/battery-forecast-ha`, Category: **Integration**
-2. **HACS → Settings** → enable **“Show beta versions”** (required for pre-releases)
-3. **HACS → Integrations** → Battery Forecast → **Download** → choose latest beta (e.g. **`v0.2.6b`**)
-4. Restart Home Assistant
-5. **Settings → Devices & services → Add integration → Battery Forecast**
+2. **HACS → Integrations** → Battery Forecast → **Download** → **`v1.0`**
+3. Restart Home Assistant
+4. **Settings → Devices & services → Add integration → Battery Forecast**
 
-**“No releases found”** / only commit hashes (e.g. `565e661`) in HACS:
-
-HACS needs **at least one normal GitHub release** (not pre-release) before it shows a beta/pre-release picker. This repo therefore has:
-
-| Tag | Type | Use |
-|-----|------|-----|
-| **`v0.1.0`** | stable release | HACS anchor / default picker |
-| **`v0.2.6b`** | pre-release | Current beta — enable **Show beta versions** |
-
-If the version list is empty:
-
-1. **HACS → Settings** → enable **Show beta versions**
-2. Open **Battery Forecast** → three dots → **Redownload** / **Update repository information**
-3. The GitHub release must **not** be a **Draft** (only published releases count)
-4. Pick **`v0.2.6b`** (beta) or **`v0.1.0`** (stable) — not a bare commit hash
+If the version list is empty: **HACS → Integrations → Battery Forecast** → three dots → **Update repository information**, then redownload. The GitHub release must be **published** (not draft).
 
 Fallback: download branch **`master`**.
 
 ### Manual
 
 Copy `custom_components/battery_forecast` into your `config/custom_components/` folder and restart HA.
-
-### ML backends: numpy (default) vs scikit-learn (optional)
-
-| Backend | When | Sensor attribute | Accuracy |
-|---------|------|------------------|----------|
-| **numpy** | Always (installed by HA via `manifest.json`) | `model_type: numpy` | Weighted linear regression — works out of the box |
-| **sklearn** | Only after **manual** install (see below) | `model_type: sklearn` | Gradient boosting — often better for variable loads |
-
-**Why is scikit-learn not in `manifest.json`?**  
-On many Home Assistant installs (especially **Python 3.14**), HA reports:
-
-`Setup failed … Requirements not found: ['scikit-learn']`
-
-So the integration ships **numpy only**. sklearn is an optional upgrade you install yourself **into Home Assistant’s Python environment**.
-
-**Do you need sklearn?** Often **no** — if `model_type: numpy` already gives plausible `empty_at` / `hours_remaining` and `mae_kwh` is low (e.g. &lt; 0.35), stay on numpy. Try sklearn if you want to squeeze more accuracy out of complex patterns (PC at night, heat pump, weekends).
-
----
-
-## Installing scikit-learn (optional)
-
-### Are these two commands enough?
-
-```bash
-pip install scikit-learn
-python -c "import sklearn; print(sklearn.__version__)"
-```
-
-**Partly.** They are the core install + check, but you **must also**:
-
-1. Run them in **Home Assistant’s Python** (not your laptop, not a random venv).
-2. **Restart Home Assistant** (full restart, not only reload integration).
-3. Run **`battery_forecast.train`** again.
-4. Confirm **`model_type: sklearn`** on a Battery Forecast sensor (not `numpy`).
-
-If you skip the restart or train step, the integration will keep using the old **numpy** model.
-
----
-
-### Step-by-step (recommended order)
-
-1. Install and configure **Battery Forecast** (HACS), train once with numpy (works without sklearn).
-2. Install scikit-learn using **one** of the methods below.
-3. Verify import prints a version (e.g. `1.5.2`) **without error**.
-4. **Settings → System → Restart Home Assistant**.
-5. **Developer tools → Services** → `battery_forecast.train` (can take several minutes with sklearn).
-6. Open any Battery Forecast sensor → attributes:
-   - `model_type` → must be **`sklearn`**
-   - `mae_kwh` / `r2` → compare to your previous numpy run
-
----
-
-### Home Assistant OS (important: two different Pythons)
-
-On **HA OS**, the **Terminal add-on** often uses a **different Python** than **Home Assistant Core**.
-
-| Where you run `pip` | Used for training? |
-|---------------------|-------------------|
-| Terminal add-on (`python3` in `/config`) | **No** — only tests the add-on |
-| **Home Assistant Core** container | **Yes** — this must have sklearn |
-
-**Symptom:** `python3 -c "import sklearn"` works in the terminal, but sensor attribute stays `model_type: numpy` after retrain.
-
-**Fix — install into the Core container (HA OS host shell):**
-
-1. **Terminal & SSH** add-on: enable **SSH on port 22**, set a password.
-2. From your PC:
-
-   ```bash
-   ssh -p 22 root@YOUR_HA_IP
-   ```
-
-3. If you see the **Home Assistant CLI** banner (`[core-ssh ~]$`, `docker: command not found`):
-
-   **Do not use `login`** — on current HA OS that only asks for the add-on password (unrelated).
-
-   Use one of these instead:
-
-   **A) Advanced SSH & Web Terminal** (recommended, community add-on):
-
-   - Install add-on **Advanced SSH & Web Terminal** (search in add-on store).
-   - Configuration: disable **protection mode**, enable **Docker access** / host access (wording varies by version).
-   - Open the add-on **web terminal** or SSH into it, then:
-
-     ```bash
-     docker ps
-     docker exec -it homeassistant python3 -m pip install scikit-learn
-     docker exec -it homeassistant python3 -c "import sklearn; print(sklearn.__version__)"
-     ```
-
-   **B) HA OS debug SSH on port 22222** (expert, requires SSH key on boot partition):
-
-   - See [Home Assistant debugging](https://www.home-assistant.io/docs/locked/lost_password/) / community guides for `authorized_keys` on the boot partition and `ssh -p 22222 root@YOUR_HA_IP`, then `login` at the `ha >` prompt and `docker exec …`.
-
-   The official **Terminal & SSH** add-on (port 22, HA CLI) **cannot** run `docker` — installing `pip` there does **not** affect Core training.
-
-4. Restart Home Assistant from the UI (or `ha core restart` from CLI), then `battery_forecast.train`.
-
-**Python 3.14 (HA Core 2026.5+):** Even with `docker exec` into the `homeassistant` container, `pip install scikit-learn` often **fails** (no wheel, builds scipy via meson → `Permission denied: meson`). Your Terminal add-on may use Python 3.13 where sklearn installs fine — that still does **not** help Core training. **Stay on `model_type: numpy`** until scikit-learn publishes cp314 wheels or HA ships an install path.
-
-Optional check in the Core container:
-
-```bash
-docker exec -it homeassistant python3 --version
-docker exec -it homeassistant python3 -m pip install scikit-learn --only-binary=:all:
-```
-
-If that fails, numpy is the correct backend for your system.
-
-4. **Restart Home Assistant** (UI) → `battery_forecast.train` → `model_type: sklearn`.
-
-**Check in HA:** Battery Forecast sensor attributes now include `core_python`, `sklearn_importable`, `sklearn_version` (or `sklearn_import_error`).
-
-Installing only in the add-on shell:
-
-```bash
-python3 -m pip install scikit-learn
-```
-
-is **not enough** on HA OS unless `sklearn_importable: true` appears on the sensor.
-
----
-
-### Home Assistant Container / Docker
-
-```bash
-docker exec -it homeassistant python3 -m pip install scikit-learn
-docker exec -it homeassistant python3 -c "import sklearn; print(sklearn.__version__)"
-```
-
-Then restart the container / HA as you usually do.
-
----
-
-### Home Assistant Supervised / generic Linux venv
-
-Activate the **same** virtualenv Home Assistant uses, then:
-
-```bash
-pip install scikit-learn
-python -c "import sklearn; print(sklearn.__version__)"
-```
-
----
-
-### After install: retrain (required)
-
-```yaml
-service: battery_forecast.train
-```
-
-Or **Developer tools → Services** → `battery_forecast.train`.
-
-Watch **Settings → System → Logs**, filter `battery_forecast`. Success looks like:
-
-```text
-Battery Forecast: fitting sklearn HistGradientBoostingRegressor
-Battery Forecast: train complete — model=sklearn mae=… kWh
-```
-
----
-
-### Troubleshooting
-
-| Problem | What to do |
-|---------|------------|
-| `pip install` succeeds but `model_type` stays **numpy** | Wrong Python environment and/or **HA not restarted** → use `docker exec … homeassistant python3` and full restart |
-| `import sklearn` fails | No wheel for your Python version (common on **3.14**) → stay on **numpy**; retry after HA/sklearn updates |
-| `Setup failed … Requirements not found: scikit-learn` | You are on an old build with sklearn in `manifest.json` → update to **v0.2.6b+** (numpy only in manifest) |
-| Training very slow / high CPU | Normal for sklearn; run at night; reduce `training_days` in options |
-| Integration worked before, broke after experiment | Install **v0.2.6b**, restart HA — do **not** add sklearn to `manifest.json` yourself |
-
----
-
-### Uninstall / back to numpy only
-
-```bash
-docker exec -it homeassistant python3 -m pip uninstall scikit-learn -y
-```
-
-Restart HA → `battery_forecast.train` → `model_type: numpy`.
 
 ## Configuration
 
@@ -305,7 +109,7 @@ PV forecast today/tomorrow (kWh) is used hourly in the SOC simulation (charging 
 
 After upgrading from older builds, remove stale `sensor.battery_forecast` / `_2` … entities in **Settings → Devices & services** if they remain as orphaned entities.
 
-Attributes include `model_type` (`numpy` / `sklearn`), `confidence`, `mae_kwh`, `model_trained_at`, `feature_importances`, and `simulation_steps` (first 24h).
+Attributes include `model_type` (always `numpy`), `confidence`, `mae_kwh`, `r2`, `model_trained_at`, `feature_importances`, and `simulation_steps` (first 24h).
 
 **ML note:** Training uses the **house consumption** sensor (`house_power`), **not** grid import. Optional feature sensors (washer, dryer, EV, …) are **supplementary** — you can use zero or a few; the model must not depend on them. They are **not** added on top of house power (no double counting). At **forecast** time those optional sensors are treated as **off (0 W)** for all future hours (we do not know if the washer will run); **house power**, time-of-day, heat pump, PV, and temperature drive the prediction.
 
