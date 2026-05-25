@@ -7,7 +7,7 @@
   "integration_type": "device",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/Volp02/battery-forecast-ha/issues",
-  "requirements": ["numpy>=1.26.0"],
-  "version": "0.2.4",
+  "requirements": ["numpy>=1.26.0", "scikit-learn>=1.4.2,<2.0.0"],
+  "version": "0.2.5",
   "homeassistant": "2025.5.0"
 }

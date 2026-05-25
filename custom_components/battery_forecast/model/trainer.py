@@ -20,8 +20,8 @@ MODEL_SKLEARN = "sklearn"
 MODEL_NUMPY = "numpy"
 
 SKLEARN_INSTALL_HINT = (
-    "For better accuracy install scikit-learn in Home Assistant: "
-    "pip install scikit-learn (SSH/Terminal add-on), then retrain."
+    "scikit-learn should install via integration requirements. "
+    "If missing, run: pip install scikit-learn (SSH/Terminal add-on), then retrain."
 )
 
 
