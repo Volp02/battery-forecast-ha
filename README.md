@@ -16,8 +16,8 @@ HACS-ready custom integration that predicts when your home battery will reach a 
 - Home Assistant **2025.5+**
 - Working **Recorder** and **Statistics** for your entities
 - Long-term statistics retention ≥ your training window (default **365 days**)
-- Python packages (installed automatically by HA): `numpy`, `scikit-learn`
-- First start after install/update may take **several minutes** while HA installs ML dependencies
+- Python package (installed automatically by HA): `numpy`
+- **`scikit-learn`** optional — HA often **cannot** auto-install it (Python 3.14 / HA OS missing wheels). Manual install via SSH if you want `model_type: sklearn`
 
 ## Installation
 
@@ -52,30 +52,29 @@ Fallback: download branch **`master`**.
 
 Copy `custom_components/battery_forecast` into your `config/custom_components/` folder and restart HA.
 
-### ML backends: scikit-learn (default) vs numpy (fallback)
+### ML backends: numpy (default) vs scikit-learn (optional)
 
 | Backend | When | Sensor attribute | Accuracy |
 |---------|------|------------------|----------|
-| **sklearn** | Installed via `manifest.json` (normal case) | `model_type: sklearn` | Gradient boosting, non-linear load patterns |
-| **numpy** | Only if `scikit-learn` import fails | `model_type: numpy` | Weighted linear regression |
+| **numpy** | Always (bundled via manifest) | `model_type: numpy` | Weighted linear regression |
+| **sklearn** | Manual install only (see below) | `model_type: sklearn` | Gradient boosting |
 
-After `battery_forecast.train`, check **`model_type`** in sensor attributes.
+**Why not in `manifest.json`?** Home Assistant reports `Requirements not found` for `scikit-learn` on many installs (notably **Python 3.14** on recent HA — no compatible wheel yet). Bundling it would break setup for everyone.
 
-**Slow or failed setup after update?** HA is installing `scikit-learn` + `scipy` (~1–5 min). Watch **Settings → System → Logs** (`battery_forecast`). On weak/ARM systems, if the integration fails to load, open an issue — fallback is manual `pip install` or we may pin numpy-only again.
-
-**Manual fallback** (only if automatic install failed):
+**Optional manual install** (SSH & Terminal add-on, if `pip install` succeeds on your system):
 
 ```bash
-pip install "scikit-learn>=1.4.2,<2.0.0"
+pip install scikit-learn
+python -c "import sklearn; print(sklearn.__version__)"
 ```
 
-Then restart Home Assistant and run `battery_forecast.train`.
+Restart Home Assistant → `battery_forecast.train` → check `model_type: sklearn`.
 
 ---
 
 ## TODO: scikit-learn documentation (planned)
 
-> **Status:** scikit-learn is bundled via manifest requirements since v0.2.5. Full troubleshooting guide still TODO.
+> **Status:** scikit-learn cannot be bundled reliably on HA 2026 / Python 3.14 — use numpy or manual pip. Full troubleshooting guide still TODO.
 
 Planned content for a future `docs/SKLEARN.md` + README section:
 

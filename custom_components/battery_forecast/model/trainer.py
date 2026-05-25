@@ -20,8 +20,8 @@ MODEL_SKLEARN = "sklearn"
 MODEL_NUMPY = "numpy"
 
 SKLEARN_INSTALL_HINT = (
-    "scikit-learn should install via integration requirements. "
-    "If missing, run: pip install scikit-learn (SSH/Terminal add-on), then retrain."
+    "scikit-learn is not bundled (HA cannot install it on all platforms, e.g. Python 3.14). "
+    "Optional: pip install scikit-learn in SSH/Terminal add-on, restart HA, retrain."
 )
 
 
