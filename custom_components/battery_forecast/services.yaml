@@ -1,0 +1,7 @@
+train:
+  name: Train model
+  description: Retrain the load forecast model from statistics and recorder history.
+
+reload_model:
+  name: Reload model
+  description: Reload the persisted model from storage.

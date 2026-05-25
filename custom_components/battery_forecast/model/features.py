@@ -1,0 +1,354 @@
+"""Build hourly training features from HA statistics and recorder."""
+
+from __future__ import annotations
+
+import logging
+import math
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+import numpy as np
+
+_LOGGER = logging.getLogger(__name__)
+
+FEATURE_NAMES_BASE = [
+    "hour_sin",
+    "hour_cos",
+    "day_of_week",
+    "month",
+    "is_weekend",
+    "outdoor_temp",
+    "heat_pump_kw",
+    "pv_kw",
+]
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _floor_hour(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.replace(minute=0, second=0, microsecond=0)
+
+
+def _entity_column(entity_id: str) -> str:
+    return "f_" + entity_id.replace(".", "_").replace("-", "_")
+
+
+def _parse_state_power(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+async def _fetch_statistics_hourly(
+    hass: Any,
+    entity_ids: list[str],
+    start: datetime,
+    end: datetime,
+) -> dict[str, dict[datetime, float]]:
+    """Fetch hourly mean statistics for entities."""
+    from homeassistant.components.recorder import get_instance
+    from homeassistant.components.recorder.statistics import async_get_statistics
+
+    result: dict[str, dict[datetime, float]] = {eid: {} for eid in entity_ids}
+    if not entity_ids:
+        return result
+
+    recorder = get_instance(hass)
+    if recorder is None:
+        _LOGGER.warning("Recorder not available")
+        return result
+
+    stats = await async_get_statistics(
+        hass,
+        start_time=start,
+        end_time=end,
+        statistic_ids=entity_ids,
+        period="hour",
+        types=["mean", "sum", "state"],
+        units=None,
+    )
+
+    for eid, rows in stats.items():
+        bucket: dict[datetime, float] = {}
+        for row in rows:
+            start_ts = row["start"]
+            if isinstance(start_ts, str):
+                start_ts = datetime.fromisoformat(start_ts)
+            if start_ts.tzinfo is None:
+                start_ts = start_ts.replace(tzinfo=timezone.utc)
+            hour = _floor_hour(start_ts)
+            val = row.get("mean")
+            if val is None:
+                val = row.get("sum")
+            if val is None:
+                val = row.get("state")
+            if val is not None:
+                bucket[hour] = float(val)
+        result[eid] = bucket
+
+    return result
+
+
+async def _fetch_recorder_hourly(
+    hass: Any,
+    entity_ids: list[str],
+    start: datetime,
+    end: datetime,
+) -> dict[str, dict[datetime, float]]:
+    """Resample recorder states to hourly mean power (W)."""
+    from homeassistant.components.recorder import history
+
+    result: dict[str, dict[datetime, float]] = {eid: {} for eid in entity_ids}
+    if not entity_ids:
+        return result
+
+    states = await history.async_get_significant_states(
+        hass,
+        start,
+        end,
+        entity_ids,
+        significant_changes_only=False,
+    )
+
+    accum: dict[str, dict[datetime, list[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+
+    for eid, state_list in states.items():
+        for state in state_list:
+            ts = state.last_changed or state.last_updated
+            if ts is None:
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            val = _parse_state_power(state.state)
+            if val is None:
+                continue
+            accum[eid][_floor_hour(ts)].append(val)
+
+    for eid, hours in accum.items():
+        for hour, values in hours.items():
+            result[eid][hour] = float(np.mean(values))
+
+    return result
+
+
+async def merge_power_series(
+    hass: Any,
+    entity_ids: list[str],
+    start: datetime,
+    end: datetime,
+    *,
+    use_recorder_fallback: bool,
+    recorder_days: int = 30,
+) -> dict[str, dict[datetime, float]]:
+    """Merge statistics (1y) with optional recorder override for recent days."""
+    stats = await _fetch_statistics_hourly(hass, entity_ids, start, end)
+    if not use_recorder_fallback:
+        return stats
+
+    rec_start = max(start, end - timedelta(days=recorder_days))
+    recorder = await _fetch_recorder_hourly(hass, entity_ids, rec_start, end)
+    for eid in entity_ids:
+        if eid not in stats:
+            stats[eid] = {}
+        for hour, val in recorder.get(eid, {}).items():
+            stats[eid][hour] = val
+    return stats
+
+
+def _w_to_kw(v: float | None) -> float:
+    if v is None:
+        return 0.0
+    # Energy statistics may already be kWh sums — heuristic: large values = energy
+    if abs(v) > 500:
+        return v / 1000.0
+    return v / 1000.0
+
+
+def build_hourly_dataset(
+    power_series: dict[str, dict[datetime, float]],
+    *,
+    house_power: str,
+    pv_power: str | None,
+    heat_pump_power: str | None,
+    outdoor_temp: str | None,
+    feature_entities: list[str],
+    start: datetime,
+    end: datetime,
+) -> tuple[np.ndarray, np.ndarray, list[str], list[datetime]]:
+    """Return X, y, feature_names, hour_index."""
+    hours: list[datetime] = []
+    cursor = _floor_hour(start)
+    end_floor = _floor_hour(end)
+    while cursor <= end_floor:
+        hours.append(cursor)
+        cursor += timedelta(hours=1)
+
+    feature_cols = list(FEATURE_NAMES_BASE)
+    for fe in feature_entities:
+        col = _entity_column(fe)
+        if col not in feature_cols:
+            feature_cols.append(col)
+
+    rows: list[list[float]] = []
+    targets: list[float] = []
+
+    house = power_series.get(house_power, {})
+    pv = power_series.get(pv_power, {}) if pv_power else {}
+    hp = power_series.get(heat_pump_power, {}) if heat_pump_power else {}
+    temp = power_series.get(outdoor_temp, {}) if outdoor_temp else {}
+
+    for hour in hours:
+        house_w = house.get(hour)
+        if house_w is None:
+            continue
+
+        pv_kw = _w_to_kw(pv.get(hour)) if pv_power else 0.0
+        hp_kw = _w_to_kw(hp.get(hour)) if heat_pump_power else 0.0
+        temp_c = temp.get(hour) if outdoor_temp else float("nan")
+
+        feature_kw = 0.0
+        row = [
+            math.sin(2 * math.pi * hour.hour / 24),
+            math.cos(2 * math.pi * hour.hour / 24),
+            float(hour.weekday()),
+            float(hour.month),
+            1.0 if hour.weekday() >= 5 else 0.0,
+            temp_c if temp_c is not None else float("nan"),
+            hp_kw,
+            pv_kw,
+        ]
+
+        for fe in feature_entities:
+            col_val = _w_to_kw(power_series.get(fe, {}).get(hour))
+            row.append(col_val)
+            feature_kw += col_val
+
+        house_kw = _w_to_kw(house_w)
+        net_load = max(0.0, house_kw + hp_kw + feature_kw - pv_kw)
+        rows.append(row)
+        targets.append(net_load)
+
+    if not rows:
+        return (
+            np.empty((0, len(feature_cols))),
+            np.empty(0),
+            feature_cols,
+            [],
+        )
+
+    return (
+        np.array(rows, dtype=np.float64),
+        np.array(targets, dtype=np.float64),
+        feature_cols,
+        hours,
+    )
+
+
+def compute_sample_weights(
+    hours: list[datetime],
+    *,
+    half_life_days: float,
+    reference: datetime | None = None,
+) -> np.ndarray:
+    """Exponential decay: recent hours weighted higher."""
+    if not hours:
+        return np.empty(0)
+    ref = reference or _utc_now()
+    weights = []
+    for hour in hours:
+        age_days = max(0.0, (ref - hour).total_seconds() / 86400.0)
+        weights.append(math.exp(-age_days / max(half_life_days, 1.0)))
+    return np.array(weights, dtype=np.float64)
+
+
+def build_inference_features(
+    base_time: datetime,
+    horizon_hours: int,
+    *,
+    outdoor_temp: float | None,
+    heat_pump_kw: float,
+    pv_kw: float,
+    feature_kw_map: dict[str, float],
+    feature_entities: list[str],
+    feature_names: list[str],
+) -> np.ndarray:
+    """Build feature matrix for future hours."""
+    rows = []
+    t = _floor_hour(base_time)
+    for i in range(horizon_hours):
+        hour = t + timedelta(hours=i)
+        row_dict = {
+            "hour_sin": math.sin(2 * math.pi * hour.hour / 24),
+            "hour_cos": math.cos(2 * math.pi * hour.hour / 24),
+            "day_of_week": float(hour.weekday()),
+            "month": float(hour.month),
+            "is_weekend": 1.0 if hour.weekday() >= 5 else 0.0,
+            "outdoor_temp": outdoor_temp if outdoor_temp is not None else float("nan"),
+            "heat_pump_kw": heat_pump_kw,
+            "pv_kw": pv_kw,
+        }
+        for fe in feature_entities:
+            row_dict[_entity_column(fe)] = feature_kw_map.get(fe, 0.0)
+
+        row = [row_dict.get(name, float("nan")) for name in feature_names]
+        rows.append(row)
+    return np.array(rows, dtype=np.float64)
+
+
+async def load_training_data(
+    hass: Any,
+    config: dict[str, Any],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str], list[datetime]]:
+    """Load and merge all sources into training matrices."""
+    training_days = int(config.get("training_days", 365))
+    end = _utc_now()
+    start = end - timedelta(days=training_days)
+
+    entity_ids: list[str] = [config["house_power"]]
+    if config.get("pv_power"):
+        entity_ids.append(config["pv_power"])
+    if config.get("heat_pump_power"):
+        entity_ids.append(config["heat_pump_power"])
+    if config.get("outdoor_temp"):
+        entity_ids.append(config["outdoor_temp"])
+    feature_entities: list[str] = list(config.get("feature_entities") or [])[
+        : int(config.get("max_feature_entities", 30))
+    ]
+    entity_ids.extend(feature_entities)
+
+    power_series = await merge_power_series(
+        hass,
+        list(dict.fromkeys(entity_ids)),
+        start,
+        end,
+        use_recorder_fallback=config.get("use_recorder_fallback", True),
+        recorder_days=min(30, training_days),
+    )
+
+    X, y, feature_names, hour_list = build_hourly_dataset(
+        power_series,
+        house_power=config["house_power"],
+        pv_power=config.get("pv_power"),
+        heat_pump_power=config.get("heat_pump_power"),
+        outdoor_temp=config.get("outdoor_temp"),
+        feature_entities=feature_entities,
+        start=start,
+        end=end,
+    )
+
+    weights = compute_sample_weights(
+        hour_list,
+        half_life_days=float(config.get("sample_half_life_days", 90)),
+        reference=end,
+    )
+    return X, y, weights, feature_names, hour_list

@@ -1,0 +1,108 @@
+{
+  "config": {
+    "step": {
+      "battery": {
+        "title": "Battery",
+        "description": "Select the battery sensors required for forecasting.",
+        "data": {
+          "battery_soc": "Battery state of charge (%)",
+          "battery_capacity_kwh": "Battery capacity (kWh)",
+          "battery_power": "Battery power (W, positive = charging)",
+          "battery_charge_energy": "Energy charged (kWh, optional)",
+          "battery_discharge_energy": "Energy discharged (kWh, optional)"
+        }
+      },
+      "solar": {
+        "title": "Solar",
+        "description": "PV production and optional solar forecast entities.",
+        "data": {
+          "pv_power": "PV power (W, optional)",
+          "pv_forecast": "Solar forecast today (kWh, optional)",
+          "pv_forecast_tomorrow": "Solar forecast tomorrow (kWh, optional)"
+        }
+      },
+      "loads": {
+        "title": "Loads",
+        "description": "House consumption and optional heat pump.",
+        "data": {
+          "house_power": "House / grid consumption power (W)",
+          "heat_pump_power": "Heat pump power (W, optional)"
+        }
+      },
+      "environment": {
+        "title": "Environment",
+        "description": "Outdoor temperature and weather for ML features.",
+        "data": {
+          "outdoor_temp": "Outdoor temperature (°C, optional)",
+          "weather_entity": "Weather entity (optional)"
+        }
+      },
+      "features": {
+        "title": "Additional feature sensors",
+        "description": "Optional power/energy sensors to improve load prediction (max 30).",
+        "data": {
+          "feature_entities": "Feature sensors (power/energy)"
+        }
+      },
+      "ml": {
+        "title": "Forecast settings",
+        "description": "Tune simulation and machine learning parameters.",
+        "data": {
+          "empty_soc_percent": "Consider empty below SOC (%)",
+          "training_days": "Training history (days, max 365)",
+          "sample_half_life_days": "Sample weight half-life (days)",
+          "use_recorder_fallback": "Use recorder for recent high-resolution data",
+          "forecast_horizon_hours": "Simulation horizon (hours)",
+          "update_interval_minutes": "Update interval (minutes)",
+          "min_training_samples": "Minimum hourly samples to train",
+          "max_feature_entities": "Maximum feature sensors",
+          "importance_threshold": "Drop features below importance threshold"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to validate entities.",
+      "invalid_entity": "Entity not found.",
+      "missing_required": "Battery SOC, capacity, power and house power are required."
+    },
+    "abort": {
+      "already_configured": "Already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Battery Forecast options",
+        "data": {
+          "empty_soc_percent": "Consider empty below SOC (%)",
+          "training_days": "Training history (days)",
+          "sample_half_life_days": "Sample weight half-life (days)",
+          "use_recorder_fallback": "Use recorder for recent high-resolution data",
+          "forecast_horizon_hours": "Simulation horizon (hours)",
+          "update_interval_minutes": "Update interval (minutes)",
+          "min_training_samples": "Minimum hourly samples to train",
+          "max_feature_entities": "Maximum feature sensors",
+          "importance_threshold": "Drop features below importance threshold"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "empty_at": { "name": "Battery empty at" },
+      "hours_remaining": { "name": "Battery hours remaining" },
+      "predicted_soc": { "name": "Predicted SOC (1h)" },
+      "net_load_next_hour": { "name": "Predicted net load next hour" }
+    }
+  },
+  "services": {
+    "train": {
+      "name": "Train model",
+      "description": "Retrain the load forecast model from statistics and recorder history."
+    },
+    "reload_model": {
+      "name": "Reload model",
+      "description": "Reload the persisted model from storage."
+    }
+  }
+}

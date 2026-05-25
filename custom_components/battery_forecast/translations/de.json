@@ -1,0 +1,108 @@
+{
+  "config": {
+    "step": {
+      "battery": {
+        "title": "Batterie",
+        "description": "Wähle die Batterie-Sensoren für die Prognose.",
+        "data": {
+          "battery_soc": "Batterie Ladezustand SOC (%)",
+          "battery_capacity_kwh": "Batteriekapazität (kWh)",
+          "battery_power": "Batterieleistung (W, positiv = laden)",
+          "battery_charge_energy": "Energie geladen (kWh, optional)",
+          "battery_discharge_energy": "Energie entladen (kWh, optional)"
+        }
+      },
+      "solar": {
+        "title": "Solar",
+        "description": "PV-Erzeugung und optionale Solar-Forecast-Entities.",
+        "data": {
+          "pv_power": "PV-Leistung (W, optional)",
+          "pv_forecast": "Solar-Forecast heute (kWh, optional)",
+          "pv_forecast_tomorrow": "Solar-Forecast morgen (kWh, optional)"
+        }
+      },
+      "loads": {
+        "title": "Verbraucher",
+        "description": "Hausverbrauch und optionale Wärmepumpe.",
+        "data": {
+          "house_power": "Haus-/Netzbezugsleistung (W)",
+          "heat_pump_power": "Wärmepumpen-Leistung (W, optional)"
+        }
+      },
+      "environment": {
+        "title": "Umgebung",
+        "description": "Außentemperatur und Wetter für ML-Features.",
+        "data": {
+          "outdoor_temp": "Außentemperatur (°C, optional)",
+          "weather_entity": "Wetter-Entity (optional)"
+        }
+      },
+      "features": {
+        "title": "Zusätzliche Feature-Sensoren",
+        "description": "Optionale Leistungs-/Energiesensoren für genauere Lastprognose (max. 30).",
+        "data": {
+          "feature_entities": "Feature-Sensoren (Leistung/Energie)"
+        }
+      },
+      "ml": {
+        "title": "Prognose-Einstellungen",
+        "description": "Simulation und Machine-Learning-Parameter.",
+        "data": {
+          "empty_soc_percent": "Als leer unter SOC (%)",
+          "training_days": "Trainingshistorie (Tage, max. 365)",
+          "sample_half_life_days": "Gewichtung Halbwertszeit (Tage)",
+          "use_recorder_fallback": "Recorder für feine Kurzzeitdaten nutzen",
+          "forecast_horizon_hours": "Simulationshorizont (Stunden)",
+          "update_interval_minutes": "Aktualisierungsintervall (Minuten)",
+          "min_training_samples": "Mindestens stündliche Samples zum Trainieren",
+          "max_feature_entities": "Maximale Feature-Sensoren",
+          "importance_threshold": "Features unter Wichtigkeitsschwelle ignorieren"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Entities konnten nicht validiert werden.",
+      "invalid_entity": "Entity nicht gefunden.",
+      "missing_required": "Batterie SOC, Kapazität, Leistung und Hausleistung sind Pflicht."
+    },
+    "abort": {
+      "already_configured": "Bereits konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Battery Forecast Optionen",
+        "data": {
+          "empty_soc_percent": "Als leer unter SOC (%)",
+          "training_days": "Trainingshistorie (Tage)",
+          "sample_half_life_days": "Gewichtung Halbwertszeit (Tage)",
+          "use_recorder_fallback": "Recorder für feine Kurzzeitdaten nutzen",
+          "forecast_horizon_hours": "Simulationshorizont (Stunden)",
+          "update_interval_minutes": "Aktualisierungsintervall (Minuten)",
+          "min_training_samples": "Mindestens stündliche Samples zum Trainieren",
+          "max_feature_entities": "Maximale Feature-Sensoren",
+          "importance_threshold": "Features unter Wichtigkeitsschwelle ignorieren"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "empty_at": { "name": "Batterie leer um" },
+      "hours_remaining": { "name": "Batterie Stunden verbleibend" },
+      "predicted_soc": { "name": "Prognose SOC (1h)" },
+      "net_load_next_hour": { "name": "Prognose Nettolast nächste Stunde" }
+    }
+  },
+  "services": {
+    "train": {
+      "name": "Modell trainieren",
+      "description": "Lastprognose-Modell aus Statistiken und Recorder neu trainieren."
+    },
+    "reload_model": {
+      "name": "Modell neu laden",
+      "description": "Gespeichertes Modell aus dem Storage laden."
+    }
+  }
+}
