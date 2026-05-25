@@ -30,6 +30,7 @@ from .const import (
     DOMAIN,
     SENSOR_TYPE_EMPTY_AT,
     SENSOR_TYPE_HOURS_REMAINING,
+    SENSOR_TYPE_MIN_SOC_12H,
     SENSOR_TYPE_NET_LOAD,
     SENSOR_TYPE_PREDICTED_SOC,
 )
@@ -43,6 +44,7 @@ ENTITY_OBJECT_IDS: dict[str, str] = {
     SENSOR_TYPE_HOURS_REMAINING: "battery_hours_remaining",
     SENSOR_TYPE_PREDICTED_SOC: "battery_predicted_soc_1h",
     SENSOR_TYPE_NET_LOAD: "battery_net_load_next_hour",
+    SENSOR_TYPE_MIN_SOC_12H: "battery_min_soc_12h",
 }
 
 SENSORS: tuple[SensorEntityDescription, ...] = (
@@ -67,6 +69,12 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         key=SENSOR_TYPE_NET_LOAD,
         translation_key=SENSOR_TYPE_NET_LOAD,
         native_unit_of_measurement="kWh",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key=SENSOR_TYPE_MIN_SOC_12H,
+        translation_key=SENSOR_TYPE_MIN_SOC_12H,
+        native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
     ),
 )
@@ -131,6 +139,8 @@ class BatteryForecastSensor(CoordinatorEntity[BatteryForecastCoordinator], Senso
             return data.predicted_soc_1h
         if key == SENSOR_TYPE_NET_LOAD:
             return data.net_load_next_hour_kwh
+        if key == SENSOR_TYPE_MIN_SOC_12H:
+            return data.min_soc_next_12h
         return None
 
     @property
@@ -150,6 +160,10 @@ class BatteryForecastSensor(CoordinatorEntity[BatteryForecastCoordinator], Senso
             config.get("forecast_horizon_hours", 48)
         )
         attrs[ATTR_HOUSE_POWER_ENTITY] = config.get("house_power")
+        if data.pv_forecast_today_kwh is not None:
+            attrs["pv_forecast_today_kwh"] = data.pv_forecast_today_kwh
+        if data.pv_forecast_tomorrow_kwh is not None:
+            attrs["pv_forecast_tomorrow_kwh"] = data.pv_forecast_tomorrow_kwh
         if self.entity_description.key == SENSOR_TYPE_EMPTY_AT:
             attrs[ATTR_SIMULATION_STEPS] = data.simulation_steps[:24]
         return attrs

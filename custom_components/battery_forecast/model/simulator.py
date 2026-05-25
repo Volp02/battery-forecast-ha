@@ -9,7 +9,7 @@ from typing import Any
 
 import numpy as np
 
-from ..helpers import read_battery_power_kw, read_power_w
+from ..helpers import read_battery_power_kw, read_daily_kwh, read_power_w
 from .features import build_inference_features
 from .trainer import ModelBundle, predict_load_kwh
 
@@ -33,6 +33,9 @@ class ForecastResult:
     confidence: float
     simulation_steps: list[dict[str, Any]]
     battery_power_kw: float | None = None
+    min_soc_next_12h: float | None = None
+    pv_forecast_today_kwh: float | None = None
+    pv_forecast_tomorrow_kwh: float | None = None
 
 
 def _parse_float(state: Any) -> float | None:
@@ -117,12 +120,11 @@ def get_pv_forecast_kwh_by_hour(
     profile: np.ndarray | None,
 ) -> list[float]:
     """Hourly PV kWh for simulation horizon."""
-    today_kwh = _read_entity_kw(hass, pv_forecast_today) if pv_forecast_today else 0.0
-    tomorrow_kwh = (
-        _read_entity_kw(hass, pv_forecast_tomorrow) if pv_forecast_tomorrow else 0.0
-    )
+    today_kwh = read_daily_kwh(hass, pv_forecast_today)
+    tomorrow_kwh = read_daily_kwh(hass, pv_forecast_tomorrow)
     if today_kwh <= 0 and pv_power:
-        today_kwh = max(0.0, _read_entity_kw(hass, pv_power)) * 0.001
+        # Fallback: current PV power (W) × rough daylight hours
+        today_kwh = max(0.0, read_power_w(hass, pv_power) / 1000.0) * 6.0
 
     result: list[float] = []
     t = base_time.replace(minute=0, second=0, microsecond=0)
@@ -163,6 +165,9 @@ def simulate_soc(
             net_load_next_hour_kwh=load_kwh_per_hour[0] if load_kwh_per_hour else None,
             confidence=0.0,
             simulation_steps=[],
+            min_soc_next_12h=None,
+            pv_forecast_today_kwh=None,
+            pv_forecast_tomorrow_kwh=None,
         )
 
     for i in range(horizon_hours):
@@ -207,6 +212,12 @@ def simulate_soc(
     if len(steps) >= 2:
         predicted_soc_1h = steps[1]["soc"]
 
+    window = steps[:12]
+    if window:
+        min_soc_next_12h = min(s["soc"] for s in window)
+    else:
+        min_soc_next_12h = current_soc
+
     return ForecastResult(
         empty_at=empty_at,
         hours_remaining=hours_remaining,
@@ -218,6 +229,9 @@ def simulate_soc(
         confidence=0.0,
         battery_power_kw=None,
         simulation_steps=steps,
+        min_soc_next_12h=min_soc_next_12h,
+        pv_forecast_today_kwh=None,
+        pv_forecast_tomorrow_kwh=None,
     )
 
 
@@ -257,6 +271,8 @@ def run_forecast(
     )
 
     loads = predict_load_kwh(bundle, X).tolist()
+    pv_today_kwh = read_daily_kwh(hass, config.get("pv_forecast"))
+    pv_tomorrow_kwh = read_daily_kwh(hass, config.get("pv_forecast_tomorrow"))
     profile = build_pv_hourly_profile(hass, config.get("pv_power"))
     pv_series = get_pv_forecast_kwh_by_hour(
         hass,
@@ -301,6 +317,9 @@ def run_forecast(
                     confidence=result.confidence,
                     battery_power_kw=result.battery_power_kw,
                     simulation_steps=result.simulation_steps,
+                    min_soc_next_12h=result.min_soc_next_12h,
+                    pv_forecast_today_kwh=result.pv_forecast_today_kwh,
+                    pv_forecast_tomorrow_kwh=result.pv_forecast_tomorrow_kwh,
                 )
 
     # Confidence from model metrics
@@ -318,4 +337,7 @@ def run_forecast(
         confidence=round(confidence, 3),
         battery_power_kw=round(read_battery_power_kw(hass, config), 3),
         simulation_steps=result.simulation_steps,
+        min_soc_next_12h=result.min_soc_next_12h,
+        pv_forecast_today_kwh=round(pv_today_kwh, 2) if pv_today_kwh else None,
+        pv_forecast_tomorrow_kwh=round(pv_tomorrow_kwh, 2) if pv_tomorrow_kwh else None,
     )

@@ -67,6 +67,11 @@ SENSOR_TYPE_EMPTY_AT = "empty_at"
 SENSOR_TYPE_HOURS_REMAINING = "hours_remaining"
 SENSOR_TYPE_PREDICTED_SOC = "predicted_soc"
 SENSOR_TYPE_NET_LOAD = "net_load_next_hour"
+SENSOR_TYPE_MIN_SOC_12H = "min_soc_12h"
+
+ATTR_MIN_SOC_12H = "min_soc_next_12h"
+ATTR_PV_FORECAST_TODAY_KWH = "pv_forecast_today_kwh"
+ATTR_PV_FORECAST_TOMORROW_KWH = "pv_forecast_tomorrow_kwh"
 
 SERVICE_TRAIN = "train"
 SERVICE_RELOAD_MODEL = "reload_model"

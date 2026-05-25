@@ -8,7 +8,7 @@ HACS-ready custom integration that predicts when your home battery will reach a 
 - **ML model** trained on up to **365 days** of hourly data (numpy by default, optional sklearn)
 - **Weighted training**: recent weeks count more (configurable half-life, default 90 days)
 - **Hybrid forecast**: ML predicts hourly net load → SOC simulation with solar forecast entities
-- **Sensors**: empty-at timestamp, hours remaining, predicted SOC in 1h, net load next hour
+- **Sensors**: empty-at timestamp, hours remaining, min SOC in 12h, predicted SOC in 1h, net load next hour
 - **Services**: `battery_forecast.train`, `battery_forecast.reload_model`
 
 ## Requirements
@@ -156,6 +156,9 @@ One device **Battery Forecast** with four entities (friendly names are translate
 | `sensor.battery_hours_remaining` | Hours remaining | Hours until empty (within horizon) |
 | `sensor.battery_predicted_soc_1h` | Predicted SOC in 1h | SOC after one simulated hour of simulation |
 | `sensor.battery_net_load_next_hour` | Net load next hour | ML estimate (kWh) |
+| `sensor.battery_min_soc_12h` | Min SOC in 12 h | Lowest simulated SOC in the next 12 hours |
+
+PV forecast today/tomorrow (kWh) is used hourly in the SOC simulation (charging effect during daylight). Attributes `pv_forecast_today_kwh` / `pv_forecast_tomorrow_kwh` show the values used.
 
 After upgrading from older builds, remove stale `sensor.battery_forecast` / `_2` … entities in **Settings → Devices & services** if they remain as orphaned entities.
 

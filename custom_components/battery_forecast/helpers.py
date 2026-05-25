@@ -54,3 +54,26 @@ def read_battery_power_w(hass: HomeAssistant, config: dict[str, Any]) -> float:
 
 def read_battery_power_kw(hass: HomeAssistant, config: dict[str, Any]) -> float:
     return read_battery_power_w(hass, config) / 1000.0
+
+
+def read_daily_kwh(hass: HomeAssistant, entity_id: str | None) -> float:
+    """Read daily energy forecast (kWh) from Forecast.Solar, Solcast, etc."""
+    if not entity_id:
+        return 0.0
+    state = hass.states.get(entity_id)
+    if state is None:
+        return 0.0
+    val = _parse_float(state.state)
+    if val is None or val < 0:
+        return 0.0
+    unit = (state.attributes.get("unit_of_measurement") or "").lower()
+    if unit in ("kwh", "kilowatt_hour", "kilowatt hours"):
+        return val
+    if unit in ("wh", "watt_hour"):
+        return val / 1000.0
+    if unit in ("mwh",):
+        return val * 1000.0
+    # Typical HA forecast sensors: state is already kWh (e.g. 12–40)
+    if val <= 150:
+        return val
+    return val / 1000.0

@@ -95,7 +95,8 @@
       "empty_at": { "name": "Empty at" },
       "hours_remaining": { "name": "Hours remaining" },
       "predicted_soc": { "name": "Predicted SOC in 1h" },
-      "net_load_next_hour": { "name": "Net load next hour" }
+      "net_load_next_hour": { "name": "Net load next hour" },
+      "min_soc_12h": { "name": "Min SOC in 12 h" }
     }
   },
   "services": {
