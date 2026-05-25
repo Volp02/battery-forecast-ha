@@ -203,19 +203,19 @@ def run_forecast(
         if state:
             outdoor_temp = _parse_float(state.state)
 
+    house_kw = _read_entity_kw(hass, config["house_power"])
     hp_kw = _read_entity_kw(hass, config.get("heat_pump_power"))
     pv_kw = _read_entity_kw(hass, config.get("pv_power"))
 
     feature_entities: list[str] = list(config.get("feature_entities") or [])
-    feature_kw_map = {fe: _read_entity_kw(hass, fe) for fe in feature_entities}
 
     X = build_inference_features(
         now,
         horizon,
         outdoor_temp=outdoor_temp,
+        house_kw=house_kw,
         heat_pump_kw=hp_kw,
         pv_kw=pv_kw,
-        feature_kw_map=feature_kw_map,
         feature_entities=feature_entities,
         feature_names=bundle.feature_names,
     )

@@ -21,6 +21,7 @@ FEATURE_NAMES_BASE = [
     "month",
     "is_weekend",
     "outdoor_temp",
+    "house_kw",
     "heat_pump_kw",
     "pv_kw",
 ]
@@ -339,7 +340,7 @@ def build_hourly_dataset(
         hp_kw = _w_to_kw(hp.get(hour)) if heat_pump_power else 0.0
         temp_c = temp.get(hour) if outdoor_temp else float("nan")
 
-        feature_kw = 0.0
+        house_kw = _w_to_kw(house_w)
         row = [
             math.sin(2 * math.pi * hour.hour / 24),
             math.cos(2 * math.pi * hour.hour / 24),
@@ -347,6 +348,7 @@ def build_hourly_dataset(
             float(hour.month),
             1.0 if hour.weekday() >= 5 else 0.0,
             temp_c if temp_c is not None else float("nan"),
+            house_kw,
             hp_kw,
             pv_kw,
         ]
@@ -354,10 +356,9 @@ def build_hourly_dataset(
         for fe in feature_entities:
             col_val = _w_to_kw(power_series.get(fe, {}).get(hour))
             row.append(col_val)
-            feature_kw += col_val
 
-        house_kw = _w_to_kw(house_w)
-        net_load = max(0.0, house_kw + hp_kw + feature_kw - pv_kw)
+        # House meter is total load; optional feature sensors are ML inputs only (no double count).
+        net_load = max(0.0, house_kw + hp_kw - pv_kw)
         rows.append(row)
         targets.append(net_load)
         sample_hours.append(hour)
@@ -400,13 +401,18 @@ def build_inference_features(
     horizon_hours: int,
     *,
     outdoor_temp: float | None,
+    house_kw: float,
     heat_pump_kw: float,
     pv_kw: float,
-    feature_kw_map: dict[str, float],
     feature_entities: list[str],
     feature_names: list[str],
 ) -> np.ndarray:
-    """Build feature matrix for future hours."""
+    """Build feature matrix for future hours.
+
+    Optional per-device power sensors are set to 0 for all future hours (unknown
+    whether washer/EV/etc. will run). Training still uses their historical hourly
+    values. Total load is driven by house_kw plus time-of-day features.
+    """
     rows = []
     t = _floor_hour(base_time)
     for i in range(horizon_hours):
@@ -418,11 +424,12 @@ def build_inference_features(
             "month": float(hour.month),
             "is_weekend": 1.0 if hour.weekday() >= 5 else 0.0,
             "outdoor_temp": outdoor_temp if outdoor_temp is not None else float("nan"),
+            "house_kw": house_kw,
             "heat_pump_kw": heat_pump_kw,
             "pv_kw": pv_kw,
         }
         for fe in feature_entities:
-            row_dict[_entity_column(fe)] = feature_kw_map.get(fe, 0.0)
+            row_dict[_entity_column(fe)] = 0.0
 
         row = [row_dict.get(name, float("nan")) for name in feature_names]
         rows.append(row)

@@ -33,8 +33,8 @@
         "title": "Umgebung",
         "description": "Außentemperatur und Wetter für ML-Features.",
         "data": {
-          "outdoor_temp": "Außentemperatur (°C, optional)",
-          "weather_entity": "Wetter-Entity (optional)"
+          "outdoor_temp": "Außentemperatur-Sensor (°C, für ML-Training)",
+          "weather_entity": "Wetter-Entity (optional, derzeit ohne ML-Nutzung)"
         }
       },
       "features": {
@@ -89,10 +89,10 @@
   },
   "entity": {
     "sensor": {
-      "empty_at": { "name": "Batterie leer um" },
-      "hours_remaining": { "name": "Batterie Stunden verbleibend" },
-      "predicted_soc": { "name": "Prognose SOC (1h)" },
-      "net_load_next_hour": { "name": "Prognose Nettolast nächste Stunde" }
+      "empty_at": { "name": "Leer um" },
+      "hours_remaining": { "name": "Stunden verbleibend" },
+      "predicted_soc": { "name": "SOC-Prognose in 1h" },
+      "net_load_next_hour": { "name": "Nettolast nächste Stunde" }
     }
   },
   "services": {

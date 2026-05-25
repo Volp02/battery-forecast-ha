@@ -146,14 +146,29 @@ automation:
 
 ## Sensors
 
-| Sensor | Description |
-|--------|-------------|
-| Battery empty at | First timestamp when simulated SOC ≤ threshold |
-| Battery hours remaining | Hours until empty (within horizon) |
-| Predicted SOC (1h) | SOC after one simulated hour |
-| Predicted net load next hour | ML estimate (kWh) |
+One device **Battery Forecast** with four entities (friendly names are translated):
+
+| Entity ID | Friendly name (EN) | Description |
+|-----------|-------------------|-------------|
+| `sensor.battery_empty_at` | Empty at | First timestamp when simulated SOC ≤ threshold |
+| `sensor.battery_hours_remaining` | Hours remaining | Hours until empty (within horizon) |
+| `sensor.battery_predicted_soc_1h` | Predicted SOC in 1h | SOC after one simulated hour of simulation |
+| `sensor.battery_net_load_next_hour` | Net load next hour | ML estimate (kWh) |
+
+After upgrading from older builds, remove stale `sensor.battery_forecast` / `_2` … entities in **Settings → Devices & services** if they remain as orphaned entities.
 
 Attributes include `model_type` (`numpy` / `sklearn`), `confidence`, `mae_kwh`, `model_trained_at`, `feature_importances`, and `simulation_steps` (first 24h).
+
+**ML note:** Training uses the **house/grid meter** as total load. Optional feature sensors (washer, dryer, EV, …) are **supplementary** — you can use zero or a few; the model must not depend on them. They are **not** added on top of house power (no double counting). At **forecast** time those optional sensors are treated as **off (0 W)** for all future hours (we do not know if the washer will run); **house power**, time-of-day, heat pump, PV, and temperature drive the prediction.
+
+### Outdoor temperature and weather
+
+| Input | Used in ML? | How |
+|-------|-------------|-----|
+| **Outdoor temperature** (`outdoor_temp`) | **Yes** | Hourly values from **statistics** during training; at forecast time the **current** temperature is applied to all future hours (simple; no hourly weather forecast yet). |
+| **Weather entity** (`weather_entity`) | **No (v0.1.1)** | Stored in config for a future release (e.g. forecast temperature). Pick a sensor with `device_class: temperature` or similar for `outdoor_temp`. |
+
+If `outdoor_temp` is omitted, the column is imputed (median / NaN handling) and time-of-day features still apply.
 
 ### Training progress in logs
 
@@ -171,7 +186,7 @@ Battery Forecast: train complete — model=numpy mae=… kWh
 
 - Ensure **statistics** are enabled for power sensors (default for `state_class: measurement`).
 - **1 year** of long-term data is enough for seasonal patterns; older data is not required.
-- Add **feature sensors** only for large, stable loads (heat pump, EV, pool) — not dozens of switches.
+- **Feature sensors are optional.** House/grid power alone is enough. Add at most a few large loads (heat pump, EV) if you want; omit washer/dryer unless you need them for training hints — they must not be required for a sensible forecast.
 - If training fails with “not enough samples”, reduce `min_training_samples` or check entity history in **History** graph.
 
 ## Manual test checklist

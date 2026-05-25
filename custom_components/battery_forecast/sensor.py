@@ -30,6 +30,14 @@ from .const import (
 from .coordinator import BatteryForecastCoordinator
 from .model.simulator import ForecastResult
 
+# Stable entity_id slugs (sensor.battery_empty_at, …)
+ENTITY_OBJECT_IDS: dict[str, str] = {
+    SENSOR_TYPE_EMPTY_AT: "battery_empty_at",
+    SENSOR_TYPE_HOURS_REMAINING: "battery_hours_remaining",
+    SENSOR_TYPE_PREDICTED_SOC: "battery_predicted_soc_1h",
+    SENSOR_TYPE_NET_LOAD: "battery_net_load_next_hour",
+}
+
 SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key=SENSOR_TYPE_EMPTY_AT,
@@ -72,6 +80,7 @@ class BatteryForecastSensor(CoordinatorEntity[BatteryForecastCoordinator], Senso
     """Battery forecast sensor."""
 
     entity_description: SensorEntityDescription
+    _attr_has_entity_name = True
 
     def __init__(
         self,
@@ -80,9 +89,12 @@ class BatteryForecastSensor(CoordinatorEntity[BatteryForecastCoordinator], Senso
     ) -> None:
         super().__init__(coordinator)
         self.entity_description = description
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{description.key}"
+        object_id = ENTITY_OBJECT_IDS[description.key]
+        entry_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"{entry_id}_{object_id}"
+        self._attr_suggested_object_id = object_id
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, coordinator.config_entry.entry_id)},
+            identifiers={(DOMAIN, entry_id)},
             name="Battery Forecast",
             manufacturer="Battery Forecast",
             model="ML Forecast",
