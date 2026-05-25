@@ -23,9 +23,11 @@ HACS-ready custom integration that predicts when your home battery will reach a 
 
 ### HACS
 
-1. Add this repository as a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/) (Integration).
-2. Install **Battery Forecast**.
-3. Restart Home Assistant.
+1. **HACS → Settings → Custom repositories** → URL: `https://github.com/Volp02/battery-forecast-ha`, Category: **Integration**
+2. **HACS → Integrations** → Battery Forecast → Download version **`v0.1b`** (pre-release)
+3. Restart Home Assistant
+
+If download fails, remove the repo from HACS, clear cache (**HACS → Settings → Advanced → Clear data**), re-add the custom repository, and download again.
 4. **Settings → Devices & services → Add integration → Battery Forecast**
 
 ### Manual
