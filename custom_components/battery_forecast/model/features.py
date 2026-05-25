@@ -174,6 +174,42 @@ async def _fetch_statistics_hourly(
     return result
 
 
+def _state_time_and_value(state: Any) -> tuple[datetime | None, Any]:
+    """Extract timestamp and value from State or compressed history dict."""
+    if isinstance(state, dict):
+        ts = state.get("last_changed") or state.get("last_updated")
+        if ts is None and "lu" in state:
+            ts = datetime.fromtimestamp(state["lu"], tz=timezone.utc)
+        if ts is None and "lc" in state:
+            ts = datetime.fromtimestamp(state["lc"], tz=timezone.utc)
+        raw = state.get("state", state.get("s"))
+        return ts, raw
+    ts = getattr(state, "last_changed", None) or getattr(state, "last_updated", None)
+    return ts, getattr(state, "state", None)
+
+
+def _fetch_recorder_sync(
+    hass: Any,
+    entity_ids: list[str],
+    start: datetime,
+    end: datetime,
+) -> dict[str, list[Any]]:
+    """Fetch recorder states (sync — run in executor)."""
+    from homeassistant.components.recorder import history
+
+    return history.get_significant_states(
+        hass,
+        start,
+        end,
+        entity_ids,
+        None,
+        include_start_time_state=True,
+        significant_changes_only=False,
+        minimal_response=False,
+        no_attributes=True,
+    )
+
+
 async def _fetch_recorder_hourly(
     hass: Any,
     entity_ids: list[str],
@@ -181,18 +217,12 @@ async def _fetch_recorder_hourly(
     end: datetime,
 ) -> dict[str, dict[datetime, float]]:
     """Resample recorder states to hourly mean power (W)."""
-    from homeassistant.components.recorder import history
-
     result: dict[str, dict[datetime, float]] = {eid: {} for eid in entity_ids}
     if not entity_ids:
         return result
 
-    states = await history.async_get_significant_states(
-        hass,
-        start,
-        end,
-        entity_ids,
-        significant_changes_only=False,
+    states = await hass.async_add_executor_job(
+        _fetch_recorder_sync, hass, entity_ids, start, end
     )
 
     accum: dict[str, dict[datetime, list[float]]] = defaultdict(
@@ -201,12 +231,12 @@ async def _fetch_recorder_hourly(
 
     for eid, state_list in states.items():
         for state in state_list:
-            ts = state.last_changed or state.last_updated
+            ts, raw = _state_time_and_value(state)
             if ts is None:
                 continue
-            if ts.tzinfo is None:
+            if isinstance(ts, datetime) and ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
-            val = _parse_state_power(state.state)
+            val = _parse_state_power(raw)
             if val is None:
                 continue
             accum[eid][_floor_hour(ts)].append(val)
@@ -233,7 +263,12 @@ async def merge_power_series(
         return stats
 
     rec_start = max(start, end - timedelta(days=recorder_days))
-    recorder = await _fetch_recorder_hourly(hass, entity_ids, rec_start, end)
+    try:
+        recorder = await _fetch_recorder_hourly(hass, entity_ids, rec_start, end)
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.warning("Recorder history fallback skipped: %s", err)
+        return stats
+
     for eid in entity_ids:
         if eid not in stats:
             stats[eid] = {}
