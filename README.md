@@ -17,7 +17,7 @@ HACS-ready custom integration that predicts when your home battery will reach a 
 - Working **Recorder** and **Statistics** for your entities
 - Long-term statistics retention ≥ your training window (default **365 days**)
 - Python package (installed automatically): `numpy`
-- **`scikit-learn`** must be installed manually in Home Assistant (see below)
+- **`scikit-learn`** optional but recommended (better accuracy; see below)
 
 ## Installation
 
@@ -34,25 +34,25 @@ If download fails, remove the repo from HACS, clear cache (**HACS → Settings �
 
 Copy `custom_components/battery_forecast` into your `config/custom_components/` folder and restart HA.
 
-### Install scikit-learn (required for training)
+### scikit-learn (optional, recommended)
 
-Home Assistant cannot always auto-install `scikit-learn`. Without it, the **config flow works**, but **training** fails.
+Training works **without** scikit-learn using a built-in numpy linear model (attribute `model_type: numpy`).
 
-**Home Assistant OS** (SSH & Terminal add-on or Studio Code Server terminal):
+For **better accuracy** (gradient boosting, attribute `model_type: sklearn`), install scikit-learn once:
+
+**Home Assistant OS** (SSH & Terminal add-on):
 
 ```bash
 pip install scikit-learn
 ```
 
-Then restart Home Assistant.
+Then restart Home Assistant and run `battery_forecast.train` again.
 
-**Docker / Core**: install into the same Python environment HA uses:
+**Docker:**
 
 ```bash
 docker exec -it homeassistant pip install scikit-learn
 ```
-
-If you see `RequirementsNotFound: scikit-learn` in the logs, this step is missing.
 
 ## Configuration
 

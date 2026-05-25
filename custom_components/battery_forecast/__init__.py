@@ -48,8 +48,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 await coord.async_train()
                 await coord.async_request_refresh()
-            except ImportError as err:
-                raise HomeAssistantError(str(err)) from err
             except Exception as err:
                 raise HomeAssistantError(f"Training failed: {err}") from err
 

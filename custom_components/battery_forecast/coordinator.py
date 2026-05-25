@@ -92,6 +92,7 @@ class BatteryForecastCoordinator(DataUpdateCoordinator[ForecastResult]):
             ATTR_RMSE_KWH: b.rmse_kwh,
             ATTR_R2: b.r2,
             ATTR_FEATURE_IMPORTANCES: b.feature_importances,
+            "model_type": b.model_type,
         }
 
     async def _async_update_data(self) -> ForecastResult:
