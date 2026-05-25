@@ -25,7 +25,7 @@ HACS-ready custom integration that predicts when your home battery will reach a 
 
 1. **HACS → Settings → Custom repositories** → URL: `https://github.com/Volp02/battery-forecast-ha`, Category: **Integration**
 2. **HACS → Settings** → enable **“Show beta versions”** (required for pre-releases)
-3. **HACS → Integrations** → Battery Forecast → **Download** → choose version **`v0.1b`**
+3. **HACS → Integrations** → Battery Forecast → **Download** → choose version **`v0.2b`**
 4. Restart Home Assistant
 5. **Settings → Devices & services → Add integration → Battery Forecast**
 
@@ -36,14 +36,15 @@ HACS needs **at least one normal GitHub release** (not pre-release) before it sh
 | Tag | Type | Use |
 |-----|------|-----|
 | **`v0.1.0`** | stable release | Default in HACS |
-| **`v0.1b`** | pre-release | Beta — enable **Show beta versions** |
+| **`v0.2b`** | pre-release | Beta — enable **Show beta versions** |
+| **`v0.1b`** | pre-release (old) | Superseded by **v0.2b** |
 
 If the version list is empty:
 
 1. **HACS → Settings** → enable **Show beta versions**
 2. Open **Battery Forecast** → three dots → **Redownload** / **Update repository information**
 3. The GitHub release must **not** be a **Draft** (only published releases count)
-4. Pick **`v0.1b`** (beta) or **`v0.1.0`** (stable) — not a bare commit hash
+4. Pick **`v0.2b`** (beta) or **`v0.1.0`** (stable) — not a bare commit hash
 
 Fallback: download branch **`master`**.
 
@@ -80,7 +81,7 @@ docker exec -it homeassistant pip install scikit-learn
 
 ## TODO: scikit-learn documentation (planned)
 
-> **Status:** Not finished yet — numpy is the default for v0.1b. Full sklearn guide to be added before a stable release.
+> **Status:** Not finished yet — numpy is the default for v0.2b. Full sklearn guide to be added before a stable release.
 
 Planned content for a future `docs/SKLEARN.md` + README section:
 
@@ -166,7 +167,7 @@ Attributes include `model_type` (`numpy` / `sklearn`), `confidence`, `mae_kwh`, 
 | Input | Used in ML? | How |
 |-------|-------------|-----|
 | **Outdoor temperature** (`outdoor_temp`) | **Yes** | Hourly values from **statistics** during training; at forecast time the **current** temperature is applied to all future hours (simple; no hourly weather forecast yet). |
-| **Weather entity** (`weather_entity`) | **No (v0.1.1)** | Stored in config for a future release (e.g. forecast temperature). Pick a sensor with `device_class: temperature` or similar for `outdoor_temp`. |
+| **Weather entity** (`weather_entity`) | **No (v0.2b)** | Stored in config for a future release (e.g. forecast temperature). Pick a sensor with `device_class: temperature` or similar for `outdoor_temp`. |
 
 If `outdoor_temp` is omitted, the column is imputed (median / NaN handling) and time-of-day features still apply.
 
