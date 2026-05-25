@@ -6,7 +6,6 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.const import UnitOfEnergy, UnitOfPower, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import entity_registry as er
@@ -54,14 +53,14 @@ from .const import (
 )
 
 POWER_SENSOR = EntitySelector(
-    EntitySelectorConfig(domain="sensor", device_class=UnitOfPower.POWER)
+    EntitySelectorConfig(domain="sensor", device_class="power")
 )
 ENERGY_SENSOR = EntitySelector(
-    EntitySelectorConfig(domain="sensor", device_class=UnitOfEnergy.ENERGY)
+    EntitySelectorConfig(domain="sensor", device_class="energy")
 )
 SOC_SENSOR = EntitySelector(EntitySelectorConfig(domain="sensor"))
 TEMP_SENSOR = EntitySelector(
-    EntitySelectorConfig(domain="sensor", device_class=UnitOfTemperature.TEMPERATURE)
+    EntitySelectorConfig(domain="sensor", device_class="temperature")
 )
 WEATHER_ENTITY = EntitySelector(EntitySelectorConfig(domain="weather"))
 FEATURE_ENTITIES = EntitySelector(
@@ -379,11 +378,5 @@ class BatteryForecastOptionsFlow(config_entries.OptionsFlow):
                 }
             ),
         )
-
-
-@callback
-def get_config(hass: HomeAssistant, entry: config_entries.ConfigEntry) -> dict[str, Any]:
-    """Merge config entry data and options."""
-    return {**entry.data, **entry.options}
 
 

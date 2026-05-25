@@ -10,7 +10,9 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import DOMAIN, SERVICE_RELOAD_MODEL, SERVICE_TRAIN
-from .coordinator import BatteryForecastCoordinator
+
+# Coordinator is imported lazily in async_setup_entry to keep config_flow loadable
+# without pulling numpy/sklearn through the package __init__.
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,6 +26,8 @@ async def async_setup(hass: HomeAssistant, base_config: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Battery Forecast from a config entry."""
+    from .coordinator import BatteryForecastCoordinator
+
     coordinator = BatteryForecastCoordinator(hass, entry)
     await coordinator.async_load_model()
 

@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .config_flow import get_config
+from .helpers import get_config
 from .const import (
     ATTR_FEATURE_IMPORTANCES,
     ATTR_MAE_KWH,
