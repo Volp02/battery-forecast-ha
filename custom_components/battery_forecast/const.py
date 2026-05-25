@@ -9,6 +9,9 @@ CONF_BATTERY_CAPACITY_KWH = "battery_capacity_kwh"
 CONF_BATTERY_POWER = "battery_power"
 CONF_BATTERY_CHARGE_ENERGY = "battery_charge_energy"
 CONF_BATTERY_DISCHARGE_ENERGY = "battery_discharge_energy"
+CONF_BATTERY_POWER_INVERT = "battery_power_invert"
+
+DEFAULT_BATTERY_POWER_INVERT = False
 
 CONF_PV_POWER = "pv_power"
 CONF_PV_FORECAST = "pv_forecast"
@@ -57,6 +60,8 @@ ATTR_EMPTY_WITHIN_HORIZON = "empty_within_horizon"
 ATTR_SOC_AT_HORIZON = "soc_at_horizon"
 ATTR_FORECAST_HORIZON_HOURS = "forecast_horizon_hours"
 ATTR_HOUSE_POWER_ENTITY = "house_power_entity"
+ATTR_EMPTY_AT_EXTRAPOLATED = "empty_at_extrapolated"
+ATTR_BATTERY_POWER_KW = "battery_power_kw"
 
 SENSOR_TYPE_EMPTY_AT = "empty_at"
 SENSOR_TYPE_HOURS_REMAINING = "hours_remaining"

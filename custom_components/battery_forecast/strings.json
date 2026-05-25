@@ -7,7 +7,8 @@
         "data": {
           "battery_soc": "Battery state of charge (%)",
           "battery_capacity_kwh": "Battery capacity (kWh)",
-          "battery_power": "Battery power (W, positive = charging)",
+          "battery_power": "Battery power (W)",
+          "battery_power_invert": "Invert sign (positive = charging by default)",
           "battery_charge_energy": "Energy charged (kWh, optional)",
           "battery_discharge_energy": "Energy discharged (kWh, optional)"
         }

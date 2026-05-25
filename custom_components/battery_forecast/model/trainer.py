@@ -271,7 +271,7 @@ def _fit_impl(
             X_train, y_train, w_train, X_val, y_val, feature_names, threshold, len(y)
         )
     else:
-        _LOGGER.warning(
+        _LOGGER.debug(
             "scikit-learn not found — using numpy linear model. %s", SKLEARN_INSTALL_HINT
         )
         _LOGGER.info("Battery Forecast: fitting weighted linear model (numpy)")

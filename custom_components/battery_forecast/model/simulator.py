@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 
+from ..helpers import read_battery_power_kw, read_power_w
 from .features import build_inference_features
 from .trainer import ModelBundle, predict_load_kwh
 
@@ -25,10 +26,12 @@ class ForecastResult:
     empty_at: datetime | None
     hours_remaining: float | None
     empty_within_horizon: bool
+    empty_at_extrapolated: bool
     soc_at_horizon: float | None
     predicted_soc_1h: float | None
     net_load_next_hour_kwh: float | None
     confidence: float
+    battery_power_kw: float | None = None
     simulation_steps: list[dict[str, Any]]
 
 
@@ -42,17 +45,26 @@ def _parse_float(state: Any) -> float | None:
 
 
 def _read_entity_kw(hass: Any, entity_id: str | None) -> float:
-    if not entity_id:
-        return 0.0
-    state = hass.states.get(entity_id)
-    if state is None:
-        return 0.0
-    val = _parse_float(state.state)
-    if val is None:
-        return 0.0
-    if abs(val) > 500:
-        return val / 1000.0
-    return val / 1000.0
+    return read_power_w(hass, entity_id) / 1000.0
+
+
+def _extrapolate_empty(
+    *,
+    current_soc: float,
+    empty_soc_percent: float,
+    steps: list[dict[str, Any]],
+    start_time: datetime,
+) -> tuple[datetime | None, float | None]:
+    """Estimate empty time from mean hourly SOC drop in the simulation."""
+    drops = [s["soc_change"] for s in steps if s["soc_change"] < -0.001]
+    if not drops or current_soc <= empty_soc_percent:
+        return None, None
+    avg_drop = sum(drops) / len(drops)
+    remaining = current_soc - empty_soc_percent
+    if remaining <= 0:
+        return start_time, 0.0
+    hours = remaining / abs(avg_drop)
+    return start_time + timedelta(hours=hours), hours
 
 
 def _read_entity_percent(hass: Any, entity_id: str) -> float:
@@ -145,6 +157,7 @@ def simulate_soc(
             empty_at=None,
             hours_remaining=None,
             empty_within_horizon=False,
+            empty_at_extrapolated=False,
             soc_at_horizon=None,
             predicted_soc_1h=None,
             net_load_next_hour_kwh=load_kwh_per_hour[0] if load_kwh_per_hour else None,
@@ -172,11 +185,23 @@ def simulate_soc(
 
     soc_at_horizon = steps[-1]["soc"] if steps else current_soc
     empty_within_horizon = empty_at is not None
+    empty_at_extrapolated = False
+
     if empty_at is not None:
         hours_remaining = (empty_at - start_time).total_seconds() / 3600.0
     else:
-        # Battery still above threshold after horizon — show horizon as lower bound.
-        hours_remaining = float(horizon_hours)
+        extrap_at, extrap_hours = _extrapolate_empty(
+            current_soc=current_soc,
+            empty_soc_percent=empty_soc_percent,
+            steps=steps,
+            start_time=start_time,
+        )
+        if extrap_at is not None and extrap_hours is not None:
+            empty_at = extrap_at
+            hours_remaining = extrap_hours
+            empty_at_extrapolated = True
+        else:
+            hours_remaining = float(horizon_hours)
 
     predicted_soc_1h = steps[0]["soc"] if len(steps) > 1 else (steps[0]["soc"] if steps else current_soc)
     if len(steps) >= 2:
@@ -186,10 +211,12 @@ def simulate_soc(
         empty_at=empty_at,
         hours_remaining=hours_remaining,
         empty_within_horizon=empty_within_horizon,
+        empty_at_extrapolated=empty_at_extrapolated,
         soc_at_horizon=soc_at_horizon,
         predicted_soc_1h=predicted_soc_1h,
         net_load_next_hour_kwh=load_kwh_per_hour[0] if load_kwh_per_hour else None,
         confidence=0.0,
+        battery_power_kw=None,
         simulation_steps=steps,
     )
 
@@ -241,6 +268,7 @@ def run_forecast(
         profile=profile,
     )
 
+    start_time = now.replace(minute=0, second=0, microsecond=0)
     result = simulate_soc(
         current_soc=current_soc,
         capacity_kwh=capacity,
@@ -248,11 +276,46 @@ def run_forecast(
         horizon_hours=horizon,
         load_kwh_per_hour=loads,
         pv_kwh_per_hour=pv_series,
-        start_time=now.replace(minute=0, second=0, microsecond=0),
+        start_time=start_time,
     )
+
+    if result.empty_at is None and capacity > 0:
+        profile_kw = [
+            float(v)
+            for v in bundle.hourly_house_kw
+            if v is not None and not (isinstance(v, float) and np.isnan(v))
+        ]
+        if profile_kw:
+            avg_kw = float(np.median(profile_kw))
+            avg_drop_pct = (avg_kw / capacity) * 100.0
+            if avg_drop_pct > 0 and current_soc > empty_soc:
+                hours = (current_soc - empty_soc) / avg_drop_pct
+                result = ForecastResult(
+                    empty_at=start_time + timedelta(hours=hours),
+                    hours_remaining=hours,
+                    empty_within_horizon=False,
+                    empty_at_extrapolated=True,
+                    soc_at_horizon=result.soc_at_horizon,
+                    predicted_soc_1h=result.predicted_soc_1h,
+                    net_load_next_hour_kwh=result.net_load_next_hour_kwh,
+                    confidence=result.confidence,
+                    battery_power_kw=result.battery_power_kw,
+                    simulation_steps=result.simulation_steps,
+                )
 
     # Confidence from model metrics
     mae = max(bundle.mae_kwh, 0.01)
     confidence = max(0.0, min(1.0, 1.0 - (mae / 2.0)))
     result.confidence = round(confidence, 3)
-    return result
+    return ForecastResult(
+        empty_at=result.empty_at,
+        hours_remaining=result.hours_remaining,
+        empty_within_horizon=result.empty_within_horizon,
+        empty_at_extrapolated=result.empty_at_extrapolated,
+        soc_at_horizon=result.soc_at_horizon,
+        predicted_soc_1h=result.predicted_soc_1h,
+        net_load_next_hour_kwh=result.net_load_next_hour_kwh,
+        confidence=round(confidence, 3),
+        battery_power_kw=round(read_battery_power_kw(hass, config), 3),
+        simulation_steps=result.simulation_steps,
+    )

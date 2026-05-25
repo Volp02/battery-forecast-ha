@@ -22,6 +22,7 @@ from .const import (
     CONF_BATTERY_CHARGE_ENERGY,
     CONF_BATTERY_DISCHARGE_ENERGY,
     CONF_BATTERY_POWER,
+    CONF_BATTERY_POWER_INVERT,
     CONF_BATTERY_SOC,
     CONF_EMPTY_SOC_PERCENT,
     CONF_FEATURE_ENTITIES,
@@ -40,6 +41,7 @@ from .const import (
     CONF_UPDATE_INTERVAL_MINUTES,
     CONF_USE_RECORDER_FALLBACK,
     CONF_WEATHER_ENTITY,
+    DEFAULT_BATTERY_POWER_INVERT,
     DEFAULT_EMPTY_SOC_PERCENT,
     DEFAULT_FORECAST_HORIZON_HOURS,
     DEFAULT_IMPORTANCE_THRESHOLD,
@@ -140,6 +142,10 @@ class BatteryForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     ),
                     vol.Required(CONF_BATTERY_POWER): POWER_SENSOR,
+                    vol.Optional(
+                        CONF_BATTERY_POWER_INVERT,
+                        default=DEFAULT_BATTERY_POWER_INVERT,
+                    ): bool,
                     vol.Optional(CONF_BATTERY_CHARGE_ENERGY): ENERGY_SENSOR,
                     vol.Optional(CONF_BATTERY_DISCHARGE_ENERGY): ENERGY_SENSOR,
                 }
@@ -307,6 +313,15 @@ class BatteryForecastOptionsFlow(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Optional(
+                        CONF_BATTERY_POWER_INVERT,
+                        default=entry.options.get(
+                            CONF_BATTERY_POWER_INVERT,
+                            entry.data.get(
+                                CONF_BATTERY_POWER_INVERT, DEFAULT_BATTERY_POWER_INVERT
+                            ),
+                        ),
+                    ): bool,
                     vol.Optional(
                         CONF_EMPTY_SOC_PERCENT,
                         default=entry.options.get(

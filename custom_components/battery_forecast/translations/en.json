@@ -7,7 +7,8 @@
         "data": {
           "battery_soc": "Battery state of charge (%)",
           "battery_capacity_kwh": "Battery capacity (kWh)",
-          "battery_power": "Battery power (W, positive = charging)",
+          "battery_power": "Battery power (W)",
+          "battery_power_invert": "Invert sign (default: positive = charging)",
           "battery_charge_energy": "Energy charged (kWh, optional)",
           "battery_discharge_energy": "Energy discharged (kWh, optional)"
         }
@@ -75,6 +76,7 @@
       "init": {
         "title": "Battery Forecast options",
         "data": {
+          "battery_power_invert": "Invert battery power sign",
           "empty_soc_percent": "Consider empty below SOC (%)",
           "training_days": "Training history (days)",
           "sample_half_life_days": "Sample weight half-life (days)",

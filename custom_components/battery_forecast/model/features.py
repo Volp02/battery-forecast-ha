@@ -133,6 +133,16 @@ def _fetch_statistics_sync(
     )
 
 
+async def _run_in_recorder_executor(hass: Any, func, *args):
+    """Run recorder DB work on the recorder executor (avoids frame warnings)."""
+    from homeassistant.components.recorder import get_instance
+
+    recorder = get_instance(hass)
+    if recorder is None:
+        return func(*args)
+    return await recorder.async_add_executor_job(func, *args)
+
+
 async def _fetch_statistics_hourly(
     hass: Any,
     entity_ids: list[str],
@@ -146,8 +156,8 @@ async def _fetch_statistics_hourly(
     result: dict[str, dict[datetime, float]] = {eid: {} for eid in entity_ids}
 
     _LOGGER.info("Battery Forecast: loading hourly statistics (long-term)")
-    stats_hour = await hass.async_add_executor_job(
-        _fetch_statistics_sync, hass, entity_ids, start, end, "hour"
+    stats_hour = await _run_in_recorder_executor(
+        hass, _fetch_statistics_sync, hass, entity_ids, start, end, "hour"
     )
     result = _statistics_to_hourly(stats_hour, entity_ids)
     _LOGGER.info(
@@ -164,7 +174,8 @@ async def _fetch_statistics_hourly(
                 "Battery Forecast: loading 5-minute statistics (last %s days)",
                 SHORT_TERM_STATISTICS_DAYS,
             )
-            stats_fine = await hass.async_add_executor_job(
+            stats_fine = await _run_in_recorder_executor(
+                hass,
                 _fetch_statistics_sync,
                 hass,
                 entity_ids,
@@ -232,8 +243,8 @@ async def _fetch_recorder_hourly(
     if not entity_ids:
         return result
 
-    states = await hass.async_add_executor_job(
-        _fetch_recorder_sync, hass, entity_ids, start, end
+    states = await _run_in_recorder_executor(
+        hass, _fetch_recorder_sync, hass, entity_ids, start, end
     )
 
     accum: dict[str, dict[datetime, list[float]]] = defaultdict(

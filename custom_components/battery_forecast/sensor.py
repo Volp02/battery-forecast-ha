@@ -19,6 +19,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTR_CONFIDENCE,
+    ATTR_BATTERY_POWER_KW,
+    ATTR_EMPTY_AT_EXTRAPOLATED,
     ATTR_EMPTY_WITHIN_HORIZON,
     ATTR_FORECAST_HORIZON_HOURS,
     ATTR_HOUSE_POWER_ENTITY,
@@ -121,7 +123,10 @@ class BatteryForecastSensor(CoordinatorEntity[BatteryForecastCoordinator], Senso
         if key == SENSOR_TYPE_EMPTY_AT:
             return data.empty_at
         if key == SENSOR_TYPE_HOURS_REMAINING:
-            return data.hours_remaining
+            if data.hours_remaining is not None:
+                return round(data.hours_remaining, 1)
+            config = get_config(self.coordinator.hass, self.coordinator.config_entry)
+            return float(config.get("forecast_horizon_hours", 48))
         if key == SENSOR_TYPE_PREDICTED_SOC:
             return data.predicted_soc_1h
         if key == SENSOR_TYPE_NET_LOAD:
@@ -137,6 +142,8 @@ class BatteryForecastSensor(CoordinatorEntity[BatteryForecastCoordinator], Senso
         attrs[ATTR_CONFIDENCE] = data.confidence
         attrs[ATTR_NET_ENERGY_NEXT_HOUR_KWH] = data.net_load_next_hour_kwh
         attrs[ATTR_EMPTY_WITHIN_HORIZON] = data.empty_within_horizon
+        attrs[ATTR_EMPTY_AT_EXTRAPOLATED] = data.empty_at_extrapolated
+        attrs[ATTR_BATTERY_POWER_KW] = data.battery_power_kw
         attrs[ATTR_SOC_AT_HORIZON] = data.soc_at_horizon
         config = get_config(self.coordinator.hass, self.coordinator.config_entry)
         attrs[ATTR_FORECAST_HORIZON_HOURS] = int(

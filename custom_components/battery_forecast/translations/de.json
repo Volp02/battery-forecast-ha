@@ -7,7 +7,8 @@
         "data": {
           "battery_soc": "Batterie Ladezustand SOC (%)",
           "battery_capacity_kwh": "Batteriekapazität (kWh)",
-          "battery_power": "Batterieleistung (W, positiv = laden)",
+          "battery_power": "Batterieleistung (W)",
+          "battery_power_invert": "Vorzeichen umkehren (positiv = laden → bei dir entladen)",
           "battery_charge_energy": "Energie geladen (kWh, optional)",
           "battery_discharge_energy": "Energie entladen (kWh, optional)"
         }
@@ -75,6 +76,7 @@
       "init": {
         "title": "Battery Forecast Optionen",
         "data": {
+          "battery_power_invert": "Batterieleistung Vorzeichen umkehren",
           "empty_soc_percent": "Als leer unter SOC (%)",
           "training_days": "Trainingshistorie (Tage)",
           "sample_half_life_days": "Gewichtung Halbwertszeit (Tage)",
