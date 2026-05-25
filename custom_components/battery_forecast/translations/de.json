@@ -57,7 +57,11 @@
           "update_interval_minutes": "Aktualisierungsintervall (Minuten)",
           "min_training_samples": "Mindestens stündliche Samples zum Trainieren",
           "max_feature_entities": "Maximale Feature-Sensoren",
-          "importance_threshold": "Features unter Wichtigkeitsschwelle ignorieren"
+          "importance_threshold": "Features unter Wichtigkeitsschwelle ignorieren",
+          "auto_retrain_enabled": "Auto-Training bei Prognose-Abweichung",
+          "auto_retrain_soc_mae_percent": "Auto-Training ab SOC-Fehler (%)",
+          "auto_retrain_min_hours": "Mindestabstand Auto-Training (h)",
+          "auto_retrain_eval_hours": "Prognose-Vergleichszeitraum (h)"
         }
       }
     },
@@ -85,7 +89,11 @@
           "update_interval_minutes": "Aktualisierungsintervall (Minuten)",
           "min_training_samples": "Mindestens stündliche Samples zum Trainieren",
           "max_feature_entities": "Maximale Feature-Sensoren",
-          "importance_threshold": "Features unter Wichtigkeitsschwelle ignorieren"
+          "importance_threshold": "Features unter Wichtigkeitsschwelle ignorieren",
+          "auto_retrain_enabled": "Auto-Training bei Prognose-Abweichung",
+          "auto_retrain_soc_mae_percent": "Auto-Training ab SOC-Fehler (%)",
+          "auto_retrain_min_hours": "Mindestabstand Auto-Training (h)",
+          "auto_retrain_eval_hours": "Prognose-Vergleichszeitraum (h)"
         }
       }
     }

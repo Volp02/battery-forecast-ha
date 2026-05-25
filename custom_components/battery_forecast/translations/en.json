@@ -57,7 +57,11 @@
           "update_interval_minutes": "Update interval (minutes)",
           "min_training_samples": "Minimum hourly samples to train",
           "max_feature_entities": "Maximum feature sensors",
-          "importance_threshold": "Drop features below importance threshold"
+          "importance_threshold": "Drop features below importance threshold",
+          "auto_retrain_enabled": "Auto-retrain when forecast deviates from actual SOC",
+          "auto_retrain_soc_mae_percent": "Auto-retrain if mean SOC error exceeds (%)",
+          "auto_retrain_min_hours": "Minimum hours between auto-retrains",
+          "auto_retrain_eval_hours": "Hours of past forecasts to evaluate"
         }
       }
     },
@@ -85,7 +89,11 @@
           "update_interval_minutes": "Update interval (minutes)",
           "min_training_samples": "Minimum hourly samples to train",
           "max_feature_entities": "Maximum feature sensors",
-          "importance_threshold": "Drop features below importance threshold"
+          "importance_threshold": "Drop features below importance threshold",
+          "auto_retrain_enabled": "Auto-retrain when forecast deviates",
+          "auto_retrain_soc_mae_percent": "Auto-retrain SOC error threshold (%)",
+          "auto_retrain_min_hours": "Minimum hours between auto-retrains",
+          "auto_retrain_eval_hours": "Evaluation window (hours)"
         }
       }
     }

@@ -24,6 +24,10 @@ from .const import (
     CONF_BATTERY_POWER,
     CONF_BATTERY_POWER_INVERT,
     CONF_BATTERY_SOC,
+    CONF_AUTO_RETRAIN_ENABLED,
+    CONF_AUTO_RETRAIN_EVAL_HOURS,
+    CONF_AUTO_RETRAIN_MIN_HOURS,
+    CONF_AUTO_RETRAIN_SOC_MAE,
     CONF_EMPTY_SOC_PERCENT,
     CONF_FEATURE_ENTITIES,
     CONF_FORECAST_HORIZON_HOURS,
@@ -44,6 +48,10 @@ from .const import (
     DEFAULT_BATTERY_POWER_INVERT,
     DEFAULT_EMPTY_SOC_PERCENT,
     DEFAULT_FORECAST_HORIZON_HOURS,
+    DEFAULT_AUTO_RETRAIN_ENABLED,
+    DEFAULT_AUTO_RETRAIN_EVAL_HOURS,
+    DEFAULT_AUTO_RETRAIN_MIN_HOURS,
+    DEFAULT_AUTO_RETRAIN_SOC_MAE,
     DEFAULT_IMPORTANCE_THRESHOLD,
     DEFAULT_MAX_FEATURE_ENTITIES,
     DEFAULT_MIN_TRAINING_SAMPLES,
@@ -274,6 +282,30 @@ class BatteryForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ): NumberSelector(
                 NumberSelectorConfig(min=0.0, max=0.1, step=0.001, mode=NumberSelectorMode.BOX)
             ),
+            vol.Optional(
+                CONF_AUTO_RETRAIN_ENABLED, default=DEFAULT_AUTO_RETRAIN_ENABLED
+            ): bool,
+            vol.Optional(
+                CONF_AUTO_RETRAIN_SOC_MAE, default=DEFAULT_AUTO_RETRAIN_SOC_MAE
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=3, max=40, step=0.5, mode=NumberSelectorMode.BOX, unit_of_measurement="%"
+                )
+            ),
+            vol.Optional(
+                CONF_AUTO_RETRAIN_MIN_HOURS, default=DEFAULT_AUTO_RETRAIN_MIN_HOURS
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=6, max=168, step=1, mode=NumberSelectorMode.BOX, unit_of_measurement="h"
+                )
+            ),
+            vol.Optional(
+                CONF_AUTO_RETRAIN_EVAL_HOURS, default=DEFAULT_AUTO_RETRAIN_EVAL_HOURS
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=6, max=72, step=1, mode=NumberSelectorMode.BOX, unit_of_measurement="h"
+                )
+            ),
         }
 
     async def _create_entry(self) -> FlowResult:
@@ -421,6 +453,48 @@ class BatteryForecastOptionsFlow(config_entries.OptionsFlow):
                         NumberSelectorConfig(
                             min=0.0, max=0.1, step=0.001, mode=NumberSelectorMode.BOX
                         )
+                    ),
+                    vol.Optional(
+                        CONF_AUTO_RETRAIN_ENABLED,
+                        default=entry.options.get(
+                            CONF_AUTO_RETRAIN_ENABLED,
+                            entry.data.get(
+                                CONF_AUTO_RETRAIN_ENABLED, DEFAULT_AUTO_RETRAIN_ENABLED
+                            ),
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_AUTO_RETRAIN_SOC_MAE,
+                        default=entry.options.get(
+                            CONF_AUTO_RETRAIN_SOC_MAE,
+                            entry.data.get(
+                                CONF_AUTO_RETRAIN_SOC_MAE, DEFAULT_AUTO_RETRAIN_SOC_MAE
+                            ),
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=3, max=40, step=0.5, mode=NumberSelectorMode.BOX)
+                    ),
+                    vol.Optional(
+                        CONF_AUTO_RETRAIN_MIN_HOURS,
+                        default=entry.options.get(
+                            CONF_AUTO_RETRAIN_MIN_HOURS,
+                            entry.data.get(
+                                CONF_AUTO_RETRAIN_MIN_HOURS, DEFAULT_AUTO_RETRAIN_MIN_HOURS
+                            ),
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=6, max=168, step=1, mode=NumberSelectorMode.BOX)
+                    ),
+                    vol.Optional(
+                        CONF_AUTO_RETRAIN_EVAL_HOURS,
+                        default=entry.options.get(
+                            CONF_AUTO_RETRAIN_EVAL_HOURS,
+                            entry.data.get(
+                                CONF_AUTO_RETRAIN_EVAL_HOURS, DEFAULT_AUTO_RETRAIN_EVAL_HOURS
+                            ),
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=6, max=72, step=1, mode=NumberSelectorMode.BOX)
                     ),
                 }
             ),

@@ -134,21 +134,26 @@ Training uses:
 2. **Long-term statistics** (up to `training_days`, default 365)
 3. **Recorder** (optional, recent high-resolution override)
 
-Automation example (weekly retrain):
+### Auto-retrain (built-in, no automation required)
 
-```yaml
-automation:
-  - alias: Retrain battery forecast
-    trigger:
-      - platform: time
-        at: "03:00:00"
-    action:
-      - service: battery_forecast.train
-```
+Enabled by default. After each forecast update the integration compares **predicted vs. actual SOC** for past hours. If the mean error exceeds the threshold (default **12 %**) and the last auto-train was at least **24 h** ago, it runs `battery_forecast.train` in the background.
+
+Configure under **Battery Forecast → Options** (or the ML step on first setup):
+
+| Option | Default |
+|--------|---------|
+| Auto-retrain enabled | on |
+| SOC error threshold | 12 % |
+| Min. interval | 24 h |
+| Evaluation window | 24 h |
+
+Sensor attributes: `forecast_soc_mae_24h`, `auto_retrain_last_at`.
+
+Manual `battery_forecast.train` still works anytime.
 
 ## Sensors
 
-One device **Battery Forecast** with four entities (friendly names are translated):
+One device **Battery Forecast** with five entities (friendly names are translated):
 
 | Entity ID | Friendly name (EN) | Description |
 |-----------|-------------------|-------------|
