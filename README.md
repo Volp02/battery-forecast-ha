@@ -29,13 +29,23 @@ HACS-ready custom integration that predicts when your home battery will reach a 
 4. Restart Home Assistant
 5. **Settings → Devices & services → Add integration → Battery Forecast**
 
-**“No releases found”** in HACS usually means:
+**“No releases found”** / only commit hashes (e.g. `565e661`) in HACS:
 
-- Pre-releases are hidden → turn on **Show beta versions** in HACS settings, or
-- HACS fell back to a commit hash (e.g. `bd4f536`) → pick **`v0.1b`** explicitly in the version list, or
-- Use **Redownload** / clear HACS cache (**Settings → Advanced → Clear data**) after the GitHub release is published
+HACS needs **at least one normal GitHub release** (not pre-release) before it shows a beta/pre-release picker. This repo therefore has:
 
-If no version list appears, download from branch **`master`** (same as latest dev).
+| Tag | Type | Use |
+|-----|------|-----|
+| **`v0.1.0`** | stable release | Default in HACS |
+| **`v0.1b`** | pre-release | Beta — enable **Show beta versions** |
+
+If the version list is empty:
+
+1. **HACS → Settings** → enable **Show beta versions**
+2. Open **Battery Forecast** → three dots → **Redownload** / **Update repository information**
+3. The GitHub release must **not** be a **Draft** (only published releases count)
+4. Pick **`v0.1b`** (beta) or **`v0.1.0`** (stable) — not a bare commit hash
+
+Fallback: download branch **`master`**.
 
 ### Manual
 
