@@ -31,8 +31,8 @@ class ForecastResult:
     predicted_soc_1h: float | None
     net_load_next_hour_kwh: float | None
     confidence: float
-    battery_power_kw: float | None = None
     simulation_steps: list[dict[str, Any]]
+    battery_power_kw: float | None = None
 
 
 def _parse_float(state: Any) -> float | None:
