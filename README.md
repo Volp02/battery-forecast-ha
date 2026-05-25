@@ -113,16 +113,23 @@ On **HA OS**, the **Terminal add-on** often uses a **different Python** than **H
 
 **Symptom:** `python3 -c "import sklearn"` works in the terminal, but sensor attribute stays `model_type: numpy` after retrain.
 
-**Fix — install into the Core container via host SSH:**
+**Fix — install into the Core container (HA OS host shell):**
 
-1. **Terminal & SSH** add-on (or **Advanced SSH**): enable **SSH on port 22** (host access), disable protected mode if needed.
-2. From your PC (not the add-on web terminal):
+1. **Terminal & SSH** add-on: enable **SSH on port 22**, set a password.
+2. From your PC:
 
    ```bash
    ssh -p 22 root@YOUR_HA_IP
    ```
 
-3. On the **HA host** (here `docker` exists):
+3. You may see the **Home Assistant CLI** banner (`core-ssh`, `docker: command not found`).  
+   Type:
+
+   ```bash
+   login
+   ```
+
+   That drops you into the **real HA OS host** shell (prompt often `#`). **Then**:
 
    ```bash
    docker ps
@@ -130,7 +137,11 @@ On **HA OS**, the **Terminal add-on** often uses a **different Python** than **H
    docker exec -it homeassistant python3 -c "import sklearn; print(sklearn.__version__)"
    ```
 
-   Container name might differ — check `docker ps` (e.g. `homeassistant`).
+   Container name might differ — check `docker ps` (often `homeassistant`).
+
+   If `login` is not available, use the **Advanced SSH & Web Terminal** add-on (community) with **Host access** enabled, or install sklearn from the **Terminal** profile that mounts into Core (see add-on docs).
+
+4. Type `exit` to leave the host shell, then restart HA from the UI (or `ha core restart` from CLI).
 
 4. **Restart Home Assistant** (UI) → `battery_forecast.train` → `model_type: sklearn`.
 
