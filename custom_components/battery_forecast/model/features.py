@@ -10,6 +10,8 @@ from typing import Any
 
 import numpy as np
 
+from ..const import SHORT_TERM_STATISTICS_DAYS
+
 _LOGGER = logging.getLogger(__name__)
 
 FEATURE_NAMES_BASE = [
@@ -47,52 +49,127 @@ def _parse_state_power(value: Any) -> float | None:
         return None
 
 
+def _parse_statistics_start(start_ts: Any) -> datetime | None:
+    """Parse StatisticsRow start field (unix float in HA 2025+)."""
+    if start_ts is None:
+        return None
+    if isinstance(start_ts, (int, float)):
+        return datetime.fromtimestamp(start_ts, tz=timezone.utc)
+    if isinstance(start_ts, str):
+        parsed = datetime.fromisoformat(start_ts)
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed
+    if isinstance(start_ts, datetime):
+        if start_ts.tzinfo is None:
+            return start_ts.replace(tzinfo=timezone.utc)
+        return start_ts
+    return None
+
+
+def _row_value(row: dict[str, Any]) -> float | None:
+    for key in ("mean", "sum", "state", "max"):
+        val = row.get(key)
+        if val is not None:
+            return float(val)
+    return None
+
+
+def _statistics_to_hourly(
+    stats: dict[str, list[dict[str, Any]]],
+    entity_ids: list[str],
+) -> dict[str, dict[datetime, float]]:
+    """Convert statistics rows to hourly buckets."""
+    result: dict[str, dict[datetime, float]] = {eid: {} for eid in entity_ids}
+    for eid, rows in stats.items():
+        accum: dict[datetime, list[float]] = defaultdict(list)
+        for row in rows:
+            start_dt = _parse_statistics_start(row.get("start"))
+            if start_dt is None:
+                continue
+            val = _row_value(row)
+            if val is None:
+                continue
+            accum[_floor_hour(start_dt)].append(val)
+        for hour, values in accum.items():
+            result[eid][hour] = float(np.mean(values))
+    return result
+
+
+def _fetch_statistics_sync(
+    hass: Any,
+    entity_ids: list[str],
+    start: datetime,
+    end: datetime,
+    period: str,
+) -> dict[str, list[dict[str, Any]]]:
+    """Fetch statistics (sync — run in executor)."""
+    from homeassistant.components.recorder import get_instance
+
+    if not entity_ids:
+        return {}
+
+    if get_instance(hass) is None:
+        _LOGGER.warning("Recorder not available")
+        return {}
+
+    try:
+        from homeassistant.components.recorder.statistics import statistics_during_period
+    except ImportError as err:
+        raise ImportError(
+            "Home Assistant recorder API statistics_during_period not found. "
+            "Requires Home Assistant 2025.5 or newer."
+        ) from err
+
+    return statistics_during_period(
+        hass,
+        start_time=start,
+        end_time=end,
+        statistic_ids=set(entity_ids),
+        period=period,  # type: ignore[arg-type]
+        units=None,
+        types={"mean", "sum", "state"},
+    )
+
+
 async def _fetch_statistics_hourly(
     hass: Any,
     entity_ids: list[str],
     start: datetime,
     end: datetime,
 ) -> dict[str, dict[datetime, float]]:
-    """Fetch hourly mean statistics for entities."""
-    from homeassistant.components.recorder import get_instance
-    from homeassistant.components.recorder.statistics import async_get_statistics
+    """Fetch statistics and normalize to hourly values."""
+    if not entity_ids:
+        return {}
 
     result: dict[str, dict[datetime, float]] = {eid: {} for eid in entity_ids}
-    if not entity_ids:
-        return result
 
-    recorder = get_instance(hass)
-    if recorder is None:
-        _LOGGER.warning("Recorder not available")
-        return result
-
-    stats = await async_get_statistics(
-        hass,
-        start_time=start,
-        end_time=end,
-        statistic_ids=entity_ids,
-        period="hour",
-        types=["mean", "sum", "state"],
-        units=None,
+    # Long-term / hourly statistics for full training window
+    stats_hour = await hass.async_add_executor_job(
+        _fetch_statistics_sync, hass, entity_ids, start, end, "hour"
     )
+    result = _statistics_to_hourly(stats_hour, entity_ids)
 
-    for eid, rows in stats.items():
-        bucket: dict[datetime, float] = {}
-        for row in rows:
-            start_ts = row["start"]
-            if isinstance(start_ts, str):
-                start_ts = datetime.fromisoformat(start_ts)
-            if start_ts.tzinfo is None:
-                start_ts = start_ts.replace(tzinfo=timezone.utc)
-            hour = _floor_hour(start_ts)
-            val = row.get("mean")
-            if val is None:
-                val = row.get("sum")
-            if val is None:
-                val = row.get("state")
-            if val is not None:
-                bucket[hour] = float(val)
-        result[eid] = bucket
+    # Short-term fine statistics (~10 days) override hourly buckets
+    short_start = max(start, end - timedelta(days=SHORT_TERM_STATISTICS_DAYS))
+    if short_start < end:
+        try:
+            stats_fine = await hass.async_add_executor_job(
+                _fetch_statistics_sync,
+                hass,
+                entity_ids,
+                short_start,
+                end,
+                "5minute",
+            )
+            fine_hourly = _statistics_to_hourly(stats_fine, entity_ids)
+            for eid in entity_ids:
+                if eid not in result:
+                    result[eid] = {}
+                for hour, val in fine_hourly.get(eid, {}).items():
+                    result[eid][hour] = val
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("5-minute statistics unavailable: %s", err)
 
     return result
 
