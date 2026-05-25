@@ -148,6 +148,17 @@ On **HA OS**, the **Terminal add-on** often uses a **different Python** than **H
 
 4. Restart Home Assistant from the UI (or `ha core restart` from CLI), then `battery_forecast.train`.
 
+**Python 3.14 (HA Core 2026.5+):** Even with `docker exec` into the `homeassistant` container, `pip install scikit-learn` often **fails** (no wheel, builds scipy via meson → `Permission denied: meson`). Your Terminal add-on may use Python 3.13 where sklearn installs fine — that still does **not** help Core training. **Stay on `model_type: numpy`** until scikit-learn publishes cp314 wheels or HA ships an install path.
+
+Optional check in the Core container:
+
+```bash
+docker exec -it homeassistant python3 --version
+docker exec -it homeassistant python3 -m pip install scikit-learn --only-binary=:all:
+```
+
+If that fails, numpy is the correct backend for your system.
+
 4. **Restart Home Assistant** (UI) → `battery_forecast.train` → `model_type: sklearn`.
 
 **Check in HA:** Battery Forecast sensor attributes now include `core_python`, `sklearn_importable`, `sklearn_version` (or `sklearn_import_error`).
