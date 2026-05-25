@@ -144,16 +144,25 @@ async def _fetch_statistics_hourly(
 
     result: dict[str, dict[datetime, float]] = {eid: {} for eid in entity_ids}
 
-    # Long-term / hourly statistics for full training window
+    _LOGGER.info("Battery Forecast: loading hourly statistics (long-term)")
     stats_hour = await hass.async_add_executor_job(
         _fetch_statistics_sync, hass, entity_ids, start, end, "hour"
     )
     result = _statistics_to_hourly(stats_hour, entity_ids)
+    _LOGGER.info(
+        "Battery Forecast: hourly statistics loaded for %s/%s entities",
+        sum(1 for eid in entity_ids if result.get(eid)),
+        len(entity_ids),
+    )
 
     # Short-term fine statistics (~10 days) override hourly buckets
     short_start = max(start, end - timedelta(days=SHORT_TERM_STATISTICS_DAYS))
     if short_start < end:
         try:
+            _LOGGER.info(
+                "Battery Forecast: loading 5-minute statistics (last %s days)",
+                SHORT_TERM_STATISTICS_DAYS,
+            )
             stats_fine = await hass.async_add_executor_job(
                 _fetch_statistics_sync,
                 hass,
@@ -163,6 +172,7 @@ async def _fetch_statistics_hourly(
                 "5minute",
             )
             fine_hourly = _statistics_to_hourly(stats_fine, entity_ids)
+            _LOGGER.info("Battery Forecast: merged fine short-term statistics")
             for eid in entity_ids:
                 if eid not in result:
                     result[eid] = {}
@@ -297,7 +307,7 @@ def build_hourly_dataset(
     start: datetime,
     end: datetime,
 ) -> tuple[np.ndarray, np.ndarray, list[str], list[datetime]]:
-    """Return X, y, feature_names, hour_index."""
+    """Return X, y, feature_names, sample_hours (one per row)."""
     hours: list[datetime] = []
     cursor = _floor_hour(start)
     end_floor = _floor_hour(end)
@@ -305,6 +315,7 @@ def build_hourly_dataset(
         hours.append(cursor)
         cursor += timedelta(hours=1)
 
+    sample_hours: list[datetime] = []
     feature_cols = list(FEATURE_NAMES_BASE)
     for fe in feature_entities:
         col = _entity_column(fe)
@@ -349,6 +360,7 @@ def build_hourly_dataset(
         net_load = max(0.0, house_kw + hp_kw + feature_kw - pv_kw)
         rows.append(row)
         targets.append(net_load)
+        sample_hours.append(hour)
 
     if not rows:
         return (
@@ -362,7 +374,7 @@ def build_hourly_dataset(
         np.array(rows, dtype=np.float64),
         np.array(targets, dtype=np.float64),
         feature_cols,
-        hours,
+        sample_hours,
     )
 
 
@@ -426,6 +438,13 @@ async def load_training_data(
     end = _utc_now()
     start = end - timedelta(days=training_days)
 
+    _LOGGER.info(
+        "Battery Forecast: loading training data (%s days, %s → %s)",
+        training_days,
+        start.isoformat(),
+        end.isoformat(),
+    )
+
     entity_ids: list[str] = [config["house_power"]]
     if config.get("pv_power"):
         entity_ids.append(config["pv_power"])
@@ -438,16 +457,27 @@ async def load_training_data(
     ]
     entity_ids.extend(feature_entities)
 
+    unique_entities = list(dict.fromkeys(entity_ids))
+    _LOGGER.info(
+        "Battery Forecast: fetching statistics for %s entities",
+        len(unique_entities),
+    )
     power_series = await merge_power_series(
         hass,
-        list(dict.fromkeys(entity_ids)),
+        unique_entities,
         start,
         end,
         use_recorder_fallback=config.get("use_recorder_fallback", True),
         recorder_days=min(30, training_days),
     )
 
-    X, y, feature_names, hour_list = build_hourly_dataset(
+    house_points = len(power_series.get(config["house_power"], {}))
+    _LOGGER.info(
+        "Battery Forecast: house power has %s hourly data points",
+        house_points,
+    )
+
+    X, y, feature_names, sample_hours = build_hourly_dataset(
         power_series,
         house_power=config["house_power"],
         pv_power=config.get("pv_power"),
@@ -459,8 +489,17 @@ async def load_training_data(
     )
 
     weights = compute_sample_weights(
-        hour_list,
+        sample_hours,
         half_life_days=float(config.get("sample_half_life_days", 90)),
         reference=end,
     )
-    return X, y, weights, feature_names, hour_list
+    _LOGGER.info(
+        "Battery Forecast: dataset ready — %s samples, %s features, weights aligned",
+        len(y),
+        len(feature_names),
+    )
+    if len(y) != len(weights):
+        raise ValueError(
+            f"Internal error: samples ({len(y)}) and weights ({len(weights)}) length mismatch"
+        )
+    return X, y, weights, feature_names, sample_hours

@@ -238,6 +238,16 @@ def _fit_impl(
     threshold: float,
     feature_names: list[str],
 ) -> ModelBundle:
+    _LOGGER.info(
+        "Battery Forecast: training started — %s samples, %s features",
+        len(y),
+        X.shape[1] if len(y) else 0,
+    )
+    if len(y) != len(weights):
+        raise ValueError(
+            f"Samples ({len(y)}) and weights ({len(weights)}) length mismatch"
+        )
+
     if len(y) < min_samples:
         raise ValueError(
             f"Not enough training samples: {len(y)} < {min_samples}. "
@@ -245,8 +255,14 @@ def _fit_impl(
         )
 
     X_train, y_train, w_train, X_val, y_val = _split_train_val(X, y, weights, min_samples)
+    _LOGGER.info(
+        "Battery Forecast: train/validation split — train=%s, val=%s",
+        len(y_train),
+        len(y_val),
+    )
 
     if _sklearn_available():
+        _LOGGER.info("Battery Forecast: fitting sklearn HistGradientBoostingRegressor")
         return _fit_sklearn(
             X_train, y_train, w_train, X_val, y_val, feature_names, threshold, len(y)
         )
@@ -254,6 +270,7 @@ def _fit_impl(
     _LOGGER.warning(
         "scikit-learn not found — using numpy linear model. %s", SKLEARN_INSTALL_HINT
     )
+    _LOGGER.info("Battery Forecast: fitting weighted linear model (numpy)")
     return _fit_numpy(
         X_train, y_train, w_train, X_val, y_val, feature_names, threshold, len(y)
     )

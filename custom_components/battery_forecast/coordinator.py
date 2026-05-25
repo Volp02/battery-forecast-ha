@@ -75,9 +75,16 @@ class BatteryForecastCoordinator(DataUpdateCoordinator[ForecastResult]):
 
     async def async_train(self) -> ModelBundle:
         """Train and store a new model."""
+        _LOGGER.info("Battery Forecast: train service started")
         config = get_config(self.hass, self.config_entry)
         bundle = await async_train_model(self.hass, config)
         await self.async_save_model(bundle)
+        _LOGGER.info(
+            "Battery Forecast: train complete — model=%s mae=%.3f kWh samples=%s",
+            bundle.model_type,
+            bundle.mae_kwh,
+            bundle.n_samples,
+        )
         return bundle
 
     def model_attributes(self) -> dict[str, Any]:
