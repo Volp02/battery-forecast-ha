@@ -2,31 +2,24 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
+    SensorEntityDescription,
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTR_CONFIDENCE,
-    ATTR_FEATURE_IMPORTANCES,
-    ATTR_MAE_KWH,
-    ATTR_MODEL_SAMPLES,
-    ATTR_MODEL_TRAINED_AT,
     ATTR_NET_ENERGY_NEXT_HOUR_KWH,
-    ATTR_R2,
-    ATTR_RMSE_KWH,
     ATTR_SIMULATION_STEPS,
     DOMAIN,
     SENSOR_TYPE_EMPTY_AT,
@@ -37,25 +30,25 @@ from .const import (
 from .coordinator import BatteryForecastCoordinator
 from .model.simulator import ForecastResult
 
-SENSORS: tuple[EntityDescription, ...] = (
-    EntityDescription(
+SENSORS: tuple[SensorEntityDescription, ...] = (
+    SensorEntityDescription(
         key=SENSOR_TYPE_EMPTY_AT,
         translation_key=SENSOR_TYPE_EMPTY_AT,
         device_class=SensorDeviceClass.TIMESTAMP,
     ),
-    EntityDescription(
+    SensorEntityDescription(
         key=SENSOR_TYPE_HOURS_REMAINING,
         translation_key=SENSOR_TYPE_HOURS_REMAINING,
         native_unit_of_measurement="h",
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    EntityDescription(
+    SensorEntityDescription(
         key=SENSOR_TYPE_PREDICTED_SOC,
         translation_key=SENSOR_TYPE_PREDICTED_SOC,
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    EntityDescription(
+    SensorEntityDescription(
         key=SENSOR_TYPE_NET_LOAD,
         translation_key=SENSOR_TYPE_NET_LOAD,
         native_unit_of_measurement="kWh",
@@ -78,12 +71,12 @@ async def async_setup_entry(
 class BatteryForecastSensor(CoordinatorEntity[BatteryForecastCoordinator], SensorEntity):
     """Battery forecast sensor."""
 
-    entity_description: EntityDescription
+    entity_description: SensorEntityDescription
 
     def __init__(
         self,
         coordinator: BatteryForecastCoordinator,
-        description: EntityDescription,
+        description: SensorEntityDescription,
     ) -> None:
         super().__init__(coordinator)
         self.entity_description = description
