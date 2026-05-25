@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import pickle
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -20,8 +21,9 @@ MODEL_SKLEARN = "sklearn"
 MODEL_NUMPY = "numpy"
 
 SKLEARN_INSTALL_HINT = (
-    "scikit-learn is not bundled (HA cannot install it on all platforms, e.g. Python 3.14). "
-    "Optional: pip install scikit-learn in SSH/Terminal add-on, restart HA, retrain."
+    "scikit-learn must be installed in Home Assistant Core Python (not only the Terminal add-on). "
+    "On HA OS: SSH to the host (port 22), then: "
+    "docker exec -it homeassistant python3 -m pip install scikit-learn"
 )
 
 
@@ -60,13 +62,35 @@ class ModelBundle:
     numpy_model: NumpyRegressionModel | None = None
 
 
-def _sklearn_available() -> bool:
+def sklearn_environment() -> dict[str, Any]:
+    """Diagnostics: which Python HA Core uses and whether sklearn imports."""
+    info: dict[str, Any] = {
+        "core_python": sys.version.split()[0],
+        "core_executable": sys.executable,
+        "sklearn_importable": False,
+    }
     try:
         import sklearn  # noqa: F401
 
+        info["sklearn_importable"] = True
+        info["sklearn_version"] = sklearn.__version__
+    except ImportError as err:
+        info["sklearn_import_error"] = str(err)
+    return info
+
+
+def _sklearn_available() -> bool:
+    env = sklearn_environment()
+    if env["sklearn_importable"]:
         return True
-    except ImportError:
-        return False
+    _LOGGER.warning(
+        "scikit-learn not importable in HA Core (%s, %s): %s. %s",
+        env.get("core_python"),
+        env.get("core_executable"),
+        env.get("sklearn_import_error", "unknown"),
+        SKLEARN_INSTALL_HINT,
+    )
+    return False
 
 
 def _metrics(y_true: np.ndarray, y_pred: np.ndarray) -> tuple[float, float, float]:

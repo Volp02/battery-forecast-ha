@@ -47,6 +47,7 @@ from .model.trainer import (
     async_train_model,
     bundle_from_storage,
     bundle_to_storage,
+    sklearn_environment,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,6 +77,7 @@ class BatteryForecastCoordinator(DataUpdateCoordinator[ForecastResult]):
         self._auto_retrain_last_at: str | None = None
         self._auto_retrain_task: asyncio.Task[None] | None = None
         self._retrain_lock = asyncio.Lock()
+        self._sklearn_env: dict[str, Any] = sklearn_environment()
 
     @property
     def model_bundle(self) -> ModelBundle | None:
@@ -135,6 +137,8 @@ class BatteryForecastCoordinator(DataUpdateCoordinator[ForecastResult]):
             attrs[ATTR_FORECAST_SOC_MAE] = round(self._forecast_soc_mae, 2)
         if self._auto_retrain_last_at:
             attrs[ATTR_AUTO_RETRAIN_LAST] = self._auto_retrain_last_at
+        self._sklearn_env = sklearn_environment()
+        attrs.update(self._sklearn_env)
         return attrs
 
     async def _async_update_data(self) -> ForecastResult:

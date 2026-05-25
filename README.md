@@ -102,23 +102,47 @@ If you skip the restart or train step, the integration will keep using the old *
 
 ---
 
-### Home Assistant OS (SSH & Terminal add-on)
+### Home Assistant OS (important: two different Pythons)
 
-Use the add-on terminal (or SSH) and install **into the HA container**:
+On **HA OS**, the **Terminal add-on** often uses a **different Python** than **Home Assistant Core**.
 
-```bash
-docker exec -it homeassistant python3 -m pip install scikit-learn
-docker exec -it homeassistant python3 -c "import sklearn; print(sklearn.__version__)"
-```
+| Where you run `pip` | Used for training? |
+|---------------------|-------------------|
+| Terminal add-on (`python3` in `/config`) | **No** — only tests the add-on |
+| **Home Assistant Core** container | **Yes** — this must have sklearn |
 
-If `docker` is not available in your shell, try:
+**Symptom:** `python3 -c "import sklearn"` works in the terminal, but sensor attribute stays `model_type: numpy` after retrain.
+
+**Fix — install into the Core container via host SSH:**
+
+1. **Terminal & SSH** add-on (or **Advanced SSH**): enable **SSH on port 22** (host access), disable protected mode if needed.
+2. From your PC (not the add-on web terminal):
+
+   ```bash
+   ssh -p 22 root@YOUR_HA_IP
+   ```
+
+3. On the **HA host** (here `docker` exists):
+
+   ```bash
+   docker ps
+   docker exec -it homeassistant python3 -m pip install scikit-learn
+   docker exec -it homeassistant python3 -c "import sklearn; print(sklearn.__version__)"
+   ```
+
+   Container name might differ — check `docker ps` (e.g. `homeassistant`).
+
+4. **Restart Home Assistant** (UI) → `battery_forecast.train` → `model_type: sklearn`.
+
+**Check in HA:** Battery Forecast sensor attributes now include `core_python`, `sklearn_importable`, `sklearn_version` (or `sklearn_import_error`).
+
+Installing only in the add-on shell:
 
 ```bash
 python3 -m pip install scikit-learn
-python3 -c "import sklearn; print(sklearn.__version__)"
 ```
 
-Only trust the install if the second command prints a version **and** step 6 below shows `model_type: sklearn`.
+is **not enough** on HA OS unless `sklearn_importable: true` appears on the sensor.
 
 ---
 
