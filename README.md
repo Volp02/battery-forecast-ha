@@ -122,26 +122,31 @@ On **HA OS**, the **Terminal add-on** often uses a **different Python** than **H
    ssh -p 22 root@YOUR_HA_IP
    ```
 
-3. You may see the **Home Assistant CLI** banner (`core-ssh`, `docker: command not found`).  
-   Type:
+3. If you see the **Home Assistant CLI** banner (`[core-ssh ~]$`, `docker: command not found`):
 
-   ```bash
-   login
-   ```
+   **Do not use `login`** — on current HA OS that only asks for the add-on password (unrelated).
 
-   That drops you into the **real HA OS host** shell (prompt often `#`). **Then**:
+   Use one of these instead:
 
-   ```bash
-   docker ps
-   docker exec -it homeassistant python3 -m pip install scikit-learn
-   docker exec -it homeassistant python3 -c "import sklearn; print(sklearn.__version__)"
-   ```
+   **A) Advanced SSH & Web Terminal** (recommended, community add-on):
 
-   Container name might differ — check `docker ps` (often `homeassistant`).
+   - Install add-on **Advanced SSH & Web Terminal** (search in add-on store).
+   - Configuration: disable **protection mode**, enable **Docker access** / host access (wording varies by version).
+   - Open the add-on **web terminal** or SSH into it, then:
 
-   If `login` is not available, use the **Advanced SSH & Web Terminal** add-on (community) with **Host access** enabled, or install sklearn from the **Terminal** profile that mounts into Core (see add-on docs).
+     ```bash
+     docker ps
+     docker exec -it homeassistant python3 -m pip install scikit-learn
+     docker exec -it homeassistant python3 -c "import sklearn; print(sklearn.__version__)"
+     ```
 
-4. Type `exit` to leave the host shell, then restart HA from the UI (or `ha core restart` from CLI).
+   **B) HA OS debug SSH on port 22222** (expert, requires SSH key on boot partition):
+
+   - See [Home Assistant debugging](https://www.home-assistant.io/docs/locked/lost_password/) / community guides for `authorized_keys` on the boot partition and `ssh -p 22222 root@YOUR_HA_IP`, then `login` at the `ha >` prompt and `docker exec …`.
+
+   The official **Terminal & SSH** add-on (port 22, HA CLI) **cannot** run `docker` — installing `pip` there does **not** affect Core training.
+
+4. Restart Home Assistant from the UI (or `ha core restart` from CLI), then `battery_forecast.train`.
 
 4. **Restart Home Assistant** (UI) → `battery_forecast.train` → `model_type: sklearn`.
 
