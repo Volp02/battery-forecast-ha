@@ -24,11 +24,15 @@ class ForecastResult:
     """Coordinator data object."""
 
     empty_at: datetime | None
+    full_at: datetime | None
     hours_remaining: float | None
     empty_within_horizon: bool
     empty_at_extrapolated: bool
     soc_at_horizon: float | None
     predicted_soc_1h: float | None
+    predicted_soc_2h: float | None
+    predicted_soc_4h: float | None
+    predicted_soc_6h: float | None
     net_load_next_hour_kwh: float | None
     confidence: float
     simulation_steps: list[dict[str, Any]]
@@ -153,15 +157,20 @@ def simulate_soc(
     soc = current_soc
     steps: list[dict[str, Any]] = []
     empty_at: datetime | None = None
+    full_at: datetime | None = None
 
     if capacity_kwh <= 0:
         return ForecastResult(
             empty_at=None,
+            full_at=None,
             hours_remaining=None,
             empty_within_horizon=False,
             empty_at_extrapolated=False,
             soc_at_horizon=None,
             predicted_soc_1h=None,
+            predicted_soc_2h=None,
+            predicted_soc_4h=None,
+            predicted_soc_6h=None,
             net_load_next_hour_kwh=load_kwh_per_hour[0] if load_kwh_per_hour else None,
             confidence=0.0,
             simulation_steps=[],
@@ -187,6 +196,8 @@ def simulate_soc(
         )
         if empty_at is None and soc <= empty_soc_percent:
             empty_at = step_time
+        if full_at is None and soc >= 100.0:
+            full_at = step_time
 
     soc_at_horizon = steps[-1]["soc"] if steps else current_soc
     empty_within_horizon = empty_at is not None
@@ -208,9 +219,17 @@ def simulate_soc(
         else:
             hours_remaining = float(horizon_hours)
 
-    predicted_soc_1h = steps[0]["soc"] if len(steps) > 1 else (steps[0]["soc"] if steps else current_soc)
-    if len(steps) >= 2:
-        predicted_soc_1h = steps[1]["soc"]
+    def _soc_at_h(offset_hours: int) -> float | None:
+        if offset_hours < len(steps):
+            return steps[offset_hours]["soc"]
+        if steps:
+            return steps[-1]["soc"]
+        return current_soc
+
+    predicted_soc_1h = _soc_at_h(1)
+    predicted_soc_2h = _soc_at_h(2)
+    predicted_soc_4h = _soc_at_h(4)
+    predicted_soc_6h = _soc_at_h(6)
 
     window = steps[:12]
     if window:
@@ -220,11 +239,15 @@ def simulate_soc(
 
     return ForecastResult(
         empty_at=empty_at,
+        full_at=full_at,
         hours_remaining=hours_remaining,
         empty_within_horizon=empty_within_horizon,
         empty_at_extrapolated=empty_at_extrapolated,
         soc_at_horizon=soc_at_horizon,
         predicted_soc_1h=predicted_soc_1h,
+        predicted_soc_2h=predicted_soc_2h,
+        predicted_soc_4h=predicted_soc_4h,
+        predicted_soc_6h=predicted_soc_6h,
         net_load_next_hour_kwh=load_kwh_per_hour[0] if load_kwh_per_hour else None,
         confidence=0.0,
         battery_power_kw=None,
@@ -232,6 +255,74 @@ def simulate_soc(
         min_soc_next_12h=min_soc_next_12h,
         pv_forecast_today_kwh=None,
         pv_forecast_tomorrow_kwh=None,
+    )
+
+
+def _apply_soc_bias_correction(
+    result: ForecastResult,
+    *,
+    bias_percent: float,
+    max_bias_percent: float,
+    start_time: datetime,
+    empty_soc_percent: float,
+) -> ForecastResult:
+    """Shift simulated SOC by historical bias (predicted - actual)."""
+    max_bias = max(0.0, max_bias_percent)
+    bias_percent = max(-max_bias, min(max_bias, bias_percent))
+    if abs(bias_percent) < 0.5 or not result.simulation_steps:
+        return result
+
+    corrected_steps: list[dict[str, Any]] = []
+    empty_at: datetime | None = None
+    full_at: datetime | None = None
+
+    for idx, step in enumerate(result.simulation_steps):
+        corrected_soc = max(0.0, min(100.0, float(step["soc"]) - bias_percent))
+        corrected_step = dict(step)
+        corrected_step["soc"] = round(corrected_soc, 2)
+        corrected_steps.append(corrected_step)
+        step_time = start_time + timedelta(hours=idx)
+        if empty_at is None and corrected_soc <= empty_soc_percent:
+            empty_at = step_time
+        if full_at is None and corrected_soc >= 100.0:
+            full_at = step_time
+
+    def _soc_at_h(offset_hours: int) -> float | None:
+        if offset_hours < len(corrected_steps):
+            return corrected_steps[offset_hours]["soc"]
+        if corrected_steps:
+            return corrected_steps[-1]["soc"]
+        return None
+
+    if empty_at is not None:
+        hours_remaining = (empty_at - start_time).total_seconds() / 3600.0
+        empty_within_horizon = True
+        empty_at_extrapolated = False
+    else:
+        hours_remaining = result.hours_remaining
+        empty_within_horizon = result.empty_within_horizon
+        empty_at_extrapolated = result.empty_at_extrapolated
+
+    min_soc_next_12h = min(s["soc"] for s in corrected_steps[:12]) if corrected_steps else None
+
+    return ForecastResult(
+        empty_at=empty_at if empty_at is not None else result.empty_at,
+        full_at=full_at if full_at is not None else result.full_at,
+        hours_remaining=hours_remaining,
+        empty_within_horizon=empty_within_horizon,
+        empty_at_extrapolated=empty_at_extrapolated,
+        soc_at_horizon=corrected_steps[-1]["soc"] if corrected_steps else result.soc_at_horizon,
+        predicted_soc_1h=_soc_at_h(1),
+        predicted_soc_2h=_soc_at_h(2),
+        predicted_soc_4h=_soc_at_h(4),
+        predicted_soc_6h=_soc_at_h(6),
+        net_load_next_hour_kwh=result.net_load_next_hour_kwh,
+        confidence=result.confidence,
+        simulation_steps=corrected_steps,
+        battery_power_kw=result.battery_power_kw,
+        min_soc_next_12h=min_soc_next_12h,
+        pv_forecast_today_kwh=result.pv_forecast_today_kwh,
+        pv_forecast_tomorrow_kwh=result.pv_forecast_tomorrow_kwh,
     )
 
 
@@ -295,6 +386,16 @@ def run_forecast(
         start_time=start_time,
     )
 
+    soc_bias = float(config.get("_forecast_soc_bias_percent", 0.0) or 0.0)
+    max_bias = float(config.get("_bias_correction_max_percent", 20.0) or 20.0)
+    result = _apply_soc_bias_correction(
+        result,
+        bias_percent=soc_bias,
+        max_bias_percent=max_bias,
+        start_time=start_time,
+        empty_soc_percent=empty_soc,
+    )
+
     if result.empty_at is None and capacity > 0:
         profile_kw = [
             float(v)
@@ -308,11 +409,15 @@ def run_forecast(
                 hours = (current_soc - empty_soc) / avg_drop_pct
                 result = ForecastResult(
                     empty_at=start_time + timedelta(hours=hours),
+                    full_at=result.full_at,
                     hours_remaining=hours,
                     empty_within_horizon=False,
                     empty_at_extrapolated=True,
                     soc_at_horizon=result.soc_at_horizon,
                     predicted_soc_1h=result.predicted_soc_1h,
+                    predicted_soc_2h=result.predicted_soc_2h,
+                    predicted_soc_4h=result.predicted_soc_4h,
+                    predicted_soc_6h=result.predicted_soc_6h,
                     net_load_next_hour_kwh=result.net_load_next_hour_kwh,
                     confidence=result.confidence,
                     battery_power_kw=result.battery_power_kw,
@@ -328,11 +433,15 @@ def run_forecast(
     result.confidence = round(confidence, 3)
     return ForecastResult(
         empty_at=result.empty_at,
+        full_at=result.full_at,
         hours_remaining=result.hours_remaining,
         empty_within_horizon=result.empty_within_horizon,
         empty_at_extrapolated=result.empty_at_extrapolated,
         soc_at_horizon=result.soc_at_horizon,
         predicted_soc_1h=result.predicted_soc_1h,
+        predicted_soc_2h=result.predicted_soc_2h,
+        predicted_soc_4h=result.predicted_soc_4h,
+        predicted_soc_6h=result.predicted_soc_6h,
         net_load_next_hour_kwh=result.net_load_next_hour_kwh,
         confidence=round(confidence, 3),
         battery_power_kw=round(read_battery_power_kw(hass, config), 3),

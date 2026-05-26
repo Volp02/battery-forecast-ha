@@ -121,6 +121,60 @@ async def compute_forecast_soc_mae(
     return float(sum(errors) / len(errors))
 
 
+async def compute_forecast_soc_bias(
+    hass: Any,
+    *,
+    battery_soc: str,
+    eval_data: dict[str, Any],
+    eval_hours: int,
+    half_life_hours: float | None = None,
+    min_samples: int = 6,
+) -> float | None:
+    """Signed SOC bias (%) for past forecasts (predicted - actual), recency-weighted."""
+    now = _utc_now()
+    window_start = now - timedelta(hours=eval_hours)
+    settle_before = now - timedelta(hours=1)
+
+    actual = await hass.async_add_executor_job(
+        _fetch_hourly_soc_sync,
+        hass,
+        battery_soc,
+        window_start - timedelta(hours=1),
+        now,
+    )
+
+    weighted_errors: list[tuple[float, float]] = []
+    total_weight = 0.0
+    for snapshot in eval_data.get("snapshots") or []:
+        for step in snapshot.get("steps") or []:
+            hour = _parse_hour(step.get("hour", ""))
+            if hour is None:
+                continue
+            if hour < window_start or hour >= settle_before:
+                continue
+            actual_soc = actual.get(hour.replace(minute=0, second=0, microsecond=0))
+            if actual_soc is None:
+                hour_key = hour.replace(minute=0, second=0, microsecond=0)
+                for ah, val in actual.items():
+                    if abs((ah - hour_key).total_seconds()) < 1800:
+                        actual_soc = val
+                        break
+            if actual_soc is None:
+                continue
+            err = float(step["soc"]) - float(actual_soc)
+            age_h = max(0.0, (now - hour).total_seconds() / 3600.0)
+            # Exponential recency weighting: half-life is half the eval window.
+            half_life_h = max(1.0, half_life_hours or (eval_hours / 2.0))
+            weight = 0.5 ** (age_h / half_life_h)
+            weighted_errors.append((err, weight))
+            total_weight += weight
+
+    if len(weighted_errors) < min_samples or total_weight <= 0:
+        return None
+    weighted_mean = sum(err * w for err, w in weighted_errors) / total_weight
+    return float(weighted_mean)
+
+
 def hours_since(iso_ts: str | None) -> float | None:
     if not iso_ts:
         return None

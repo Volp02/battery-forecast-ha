@@ -14,8 +14,11 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .helpers import get_config
 from .const import (
+    CONF_BIAS_CORRECTION_MAX_PERCENT,
+    CONF_BIAS_HALF_LIFE_HOURS,
     ATTR_AUTO_RETRAIN_LAST,
     ATTR_FEATURE_IMPORTANCES,
+    ATTR_FORECAST_SOC_BIAS,
     ATTR_FORECAST_SOC_MAE,
     ATTR_MAE_KWH,
     ATTR_MODEL_SAMPLES,
@@ -30,6 +33,8 @@ from .const import (
     DEFAULT_AUTO_RETRAIN_EVAL_HOURS,
     DEFAULT_AUTO_RETRAIN_MIN_HOURS,
     DEFAULT_AUTO_RETRAIN_SOC_MAE,
+    DEFAULT_BIAS_CORRECTION_MAX_PERCENT,
+    DEFAULT_BIAS_HALF_LIFE_HOURS,
     DOMAIN,
     STORAGE_EVAL_KEY,
     STORAGE_EVAL_VERSION,
@@ -38,6 +43,7 @@ from .const import (
 )
 from .model.evaluation import (
     append_snapshot,
+    compute_forecast_soc_bias,
     compute_forecast_soc_mae,
     should_auto_retrain,
 )
@@ -74,6 +80,7 @@ class BatteryForecastCoordinator(DataUpdateCoordinator[ForecastResult]):
         self._eval_store = Store(hass, STORAGE_EVAL_VERSION, STORAGE_EVAL_KEY)
         self._bundle: ModelBundle | None = None
         self._forecast_soc_mae: float | None = None
+        self._forecast_soc_bias: float | None = None
         self._auto_retrain_last_at: str | None = None
         self._auto_retrain_task: asyncio.Task[None] | None = None
         self._retrain_lock = asyncio.Lock()
@@ -135,6 +142,8 @@ class BatteryForecastCoordinator(DataUpdateCoordinator[ForecastResult]):
             }
         if self._forecast_soc_mae is not None:
             attrs[ATTR_FORECAST_SOC_MAE] = round(self._forecast_soc_mae, 2)
+        if self._forecast_soc_bias is not None:
+            attrs[ATTR_FORECAST_SOC_BIAS] = round(self._forecast_soc_bias, 2)
         if self._auto_retrain_last_at:
             attrs[ATTR_AUTO_RETRAIN_LAST] = self._auto_retrain_last_at
         self._sklearn_env = sklearn_environment()
@@ -149,9 +158,18 @@ class BatteryForecastCoordinator(DataUpdateCoordinator[ForecastResult]):
                 "No trained model. Call service battery_forecast.train first."
             )
         config = get_config(self.hass, self.config_entry)
+        forecast_config = dict(config)
+        if self._forecast_soc_bias is not None:
+            forecast_config["_forecast_soc_bias_percent"] = self._forecast_soc_bias
+        forecast_config["_bias_correction_max_percent"] = float(
+            config.get(
+                CONF_BIAS_CORRECTION_MAX_PERCENT,
+                DEFAULT_BIAS_CORRECTION_MAX_PERCENT,
+            )
+        )
         try:
             result = await self.hass.async_add_executor_job(
-                run_forecast, self.hass, config, self._bundle
+                run_forecast, self.hass, forecast_config, self._bundle
             )
         except Exception as err:
             raise UpdateFailed(f"Forecast failed: {err}") from err
@@ -181,6 +199,17 @@ class BatteryForecastCoordinator(DataUpdateCoordinator[ForecastResult]):
             eval_data=eval_data,
             eval_hours=int(
                 config.get(CONF_AUTO_RETRAIN_EVAL_HOURS, DEFAULT_AUTO_RETRAIN_EVAL_HOURS)
+            ),
+        )
+        self._forecast_soc_bias = await compute_forecast_soc_bias(
+            self.hass,
+            battery_soc=config["battery_soc"],
+            eval_data=eval_data,
+            eval_hours=int(
+                config.get(CONF_AUTO_RETRAIN_EVAL_HOURS, DEFAULT_AUTO_RETRAIN_EVAL_HOURS)
+            ),
+            half_life_hours=float(
+                config.get(CONF_BIAS_HALF_LIFE_HOURS, DEFAULT_BIAS_HALF_LIFE_HOURS)
             ),
         )
 

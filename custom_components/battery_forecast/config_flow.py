@@ -18,6 +18,8 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    CONF_BIAS_CORRECTION_MAX_PERCENT,
+    CONF_BIAS_HALF_LIFE_HOURS,
     CONF_BATTERY_CAPACITY_KWH,
     CONF_BATTERY_CHARGE_ENERGY,
     CONF_BATTERY_DISCHARGE_ENERGY,
@@ -52,6 +54,8 @@ from .const import (
     DEFAULT_AUTO_RETRAIN_EVAL_HOURS,
     DEFAULT_AUTO_RETRAIN_MIN_HOURS,
     DEFAULT_AUTO_RETRAIN_SOC_MAE,
+    DEFAULT_BIAS_CORRECTION_MAX_PERCENT,
+    DEFAULT_BIAS_HALF_LIFE_HOURS,
     DEFAULT_IMPORTANCE_THRESHOLD,
     DEFAULT_MAX_FEATURE_ENTITIES,
     DEFAULT_MIN_TRAINING_SAMPLES,
@@ -306,6 +310,22 @@ class BatteryForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     min=6, max=72, step=1, mode=NumberSelectorMode.BOX, unit_of_measurement="h"
                 )
             ),
+            vol.Optional(
+                CONF_BIAS_CORRECTION_MAX_PERCENT,
+                default=DEFAULT_BIAS_CORRECTION_MAX_PERCENT,
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0, max=40, step=0.5, mode=NumberSelectorMode.BOX, unit_of_measurement="%"
+                )
+            ),
+            vol.Optional(
+                CONF_BIAS_HALF_LIFE_HOURS,
+                default=DEFAULT_BIAS_HALF_LIFE_HOURS,
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=1, max=72, step=1, mode=NumberSelectorMode.BOX, unit_of_measurement="h"
+                )
+            ),
         }
 
     async def _create_entry(self) -> FlowResult:
@@ -495,6 +515,29 @@ class BatteryForecastOptionsFlow(config_entries.OptionsFlow):
                         ),
                     ): NumberSelector(
                         NumberSelectorConfig(min=6, max=72, step=1, mode=NumberSelectorMode.BOX)
+                    ),
+                    vol.Optional(
+                        CONF_BIAS_CORRECTION_MAX_PERCENT,
+                        default=entry.options.get(
+                            CONF_BIAS_CORRECTION_MAX_PERCENT,
+                            entry.data.get(
+                                CONF_BIAS_CORRECTION_MAX_PERCENT,
+                                DEFAULT_BIAS_CORRECTION_MAX_PERCENT,
+                            ),
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0, max=40, step=0.5, mode=NumberSelectorMode.BOX)
+                    ),
+                    vol.Optional(
+                        CONF_BIAS_HALF_LIFE_HOURS,
+                        default=entry.options.get(
+                            CONF_BIAS_HALF_LIFE_HOURS,
+                            entry.data.get(
+                                CONF_BIAS_HALF_LIFE_HOURS, DEFAULT_BIAS_HALF_LIFE_HOURS
+                            ),
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=1, max=72, step=1, mode=NumberSelectorMode.BOX)
                     ),
                 }
             ),

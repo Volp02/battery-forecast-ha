@@ -15,7 +15,7 @@
       },
       "solar": {
         "title": "Solar",
-        "description": "PV production and optional solar forecast entities.",
+        "description": "PV production and optional solar forecast entities (kWh). Recommended for today: sensor.energy_production_today_remaining.",
         "data": {
           "pv_power": "PV power (W, optional)",
           "pv_forecast": "Solar forecast today (kWh, optional)",
@@ -61,7 +61,9 @@
           "auto_retrain_enabled": "Auto-retrain when forecast deviates from actual SOC",
           "auto_retrain_soc_mae_percent": "Auto-retrain if mean SOC error exceeds (%)",
           "auto_retrain_min_hours": "Minimum hours between auto-retrains",
-          "auto_retrain_eval_hours": "Hours of past forecasts to evaluate"
+          "auto_retrain_eval_hours": "Hours of past forecasts to evaluate",
+          "bias_correction_max_percent": "Max SOC bias correction (%)",
+          "bias_half_life_hours": "Bias recency half-life (hours)"
         }
       }
     },
@@ -91,7 +93,9 @@
           "auto_retrain_enabled": "Auto-retrain when forecast deviates",
           "auto_retrain_soc_mae_percent": "Auto-retrain SOC error threshold (%)",
           "auto_retrain_min_hours": "Minimum hours between auto-retrains",
-          "auto_retrain_eval_hours": "Evaluation window (hours)"
+          "auto_retrain_eval_hours": "Evaluation window (hours)",
+          "bias_correction_max_percent": "Max SOC bias correction (%)",
+          "bias_half_life_hours": "Bias recency half-life (hours)"
         }
       }
     }
@@ -99,8 +103,12 @@
   "entity": {
     "sensor": {
       "empty_at": { "name": "Empty at" },
+      "full_at": { "name": "Full at" },
       "hours_remaining": { "name": "Hours remaining" },
       "predicted_soc": { "name": "Predicted SOC in 1h" },
+      "predicted_soc_2h": { "name": "Predicted SOC in 2h" },
+      "predicted_soc_4h": { "name": "Predicted SOC in 4h" },
+      "predicted_soc_6h": { "name": "Predicted SOC in 6h" },
       "net_load_next_hour": { "name": "Net load next hour" },
       "min_soc_12h": { "name": "Min SOC in 12 h" }
     }

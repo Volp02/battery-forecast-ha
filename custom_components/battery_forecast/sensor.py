@@ -29,10 +29,14 @@ from .const import (
     ATTR_SOC_AT_HORIZON,
     DOMAIN,
     SENSOR_TYPE_EMPTY_AT,
+    SENSOR_TYPE_FULL_AT,
     SENSOR_TYPE_HOURS_REMAINING,
     SENSOR_TYPE_MIN_SOC_12H,
     SENSOR_TYPE_NET_LOAD,
     SENSOR_TYPE_PREDICTED_SOC,
+    SENSOR_TYPE_PREDICTED_SOC_2H,
+    SENSOR_TYPE_PREDICTED_SOC_4H,
+    SENSOR_TYPE_PREDICTED_SOC_6H,
 )
 from .coordinator import BatteryForecastCoordinator
 from .helpers import get_config
@@ -41,8 +45,12 @@ from .model.simulator import ForecastResult
 # Stable entity_id slugs (sensor.battery_empty_at, …)
 ENTITY_OBJECT_IDS: dict[str, str] = {
     SENSOR_TYPE_EMPTY_AT: "battery_empty_at",
+    SENSOR_TYPE_FULL_AT: "battery_full_at",
     SENSOR_TYPE_HOURS_REMAINING: "battery_hours_remaining",
     SENSOR_TYPE_PREDICTED_SOC: "battery_predicted_soc_1h",
+    SENSOR_TYPE_PREDICTED_SOC_2H: "battery_predicted_soc_2h",
+    SENSOR_TYPE_PREDICTED_SOC_4H: "battery_predicted_soc_4h",
+    SENSOR_TYPE_PREDICTED_SOC_6H: "battery_predicted_soc_6h",
     SENSOR_TYPE_NET_LOAD: "battery_net_load_next_hour",
     SENSOR_TYPE_MIN_SOC_12H: "battery_min_soc_12h",
 }
@@ -54,6 +62,11 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TIMESTAMP,
     ),
     SensorEntityDescription(
+        key=SENSOR_TYPE_FULL_AT,
+        translation_key=SENSOR_TYPE_FULL_AT,
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    SensorEntityDescription(
         key=SENSOR_TYPE_HOURS_REMAINING,
         translation_key=SENSOR_TYPE_HOURS_REMAINING,
         native_unit_of_measurement="h",
@@ -62,6 +75,24 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key=SENSOR_TYPE_PREDICTED_SOC,
         translation_key=SENSOR_TYPE_PREDICTED_SOC,
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key=SENSOR_TYPE_PREDICTED_SOC_2H,
+        translation_key=SENSOR_TYPE_PREDICTED_SOC_2H,
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key=SENSOR_TYPE_PREDICTED_SOC_4H,
+        translation_key=SENSOR_TYPE_PREDICTED_SOC_4H,
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key=SENSOR_TYPE_PREDICTED_SOC_6H,
+        translation_key=SENSOR_TYPE_PREDICTED_SOC_6H,
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
     ),
@@ -130,13 +161,20 @@ class BatteryForecastSensor(CoordinatorEntity[BatteryForecastCoordinator], Senso
         key = self.entity_description.key
         if key == SENSOR_TYPE_EMPTY_AT:
             return data.empty_at
+        if key == SENSOR_TYPE_FULL_AT:
+            return data.full_at
         if key == SENSOR_TYPE_HOURS_REMAINING:
             if data.hours_remaining is not None:
-                return round(data.hours_remaining, 1)
-            config = get_config(self.coordinator.hass, self.coordinator.config_entry)
-            return float(config.get("forecast_horizon_hours", 48))
+                return round(min(data.hours_remaining, 24.0), 1)
+            return 24.0
         if key == SENSOR_TYPE_PREDICTED_SOC:
             return data.predicted_soc_1h
+        if key == SENSOR_TYPE_PREDICTED_SOC_2H:
+            return data.predicted_soc_2h
+        if key == SENSOR_TYPE_PREDICTED_SOC_4H:
+            return data.predicted_soc_4h
+        if key == SENSOR_TYPE_PREDICTED_SOC_6H:
+            return data.predicted_soc_6h
         if key == SENSOR_TYPE_NET_LOAD:
             return data.net_load_next_hour_kwh
         if key == SENSOR_TYPE_MIN_SOC_12H:

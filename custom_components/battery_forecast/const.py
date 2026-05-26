@@ -38,6 +38,8 @@ CONF_AUTO_RETRAIN_ENABLED = "auto_retrain_enabled"
 CONF_AUTO_RETRAIN_SOC_MAE = "auto_retrain_soc_mae_percent"
 CONF_AUTO_RETRAIN_MIN_HOURS = "auto_retrain_min_hours"
 CONF_AUTO_RETRAIN_EVAL_HOURS = "auto_retrain_eval_hours"
+CONF_BIAS_CORRECTION_MAX_PERCENT = "bias_correction_max_percent"
+CONF_BIAS_HALF_LIFE_HOURS = "bias_half_life_hours"
 
 STORAGE_EVAL_KEY = "battery_forecast_eval"
 STORAGE_EVAL_VERSION = 1
@@ -55,6 +57,8 @@ DEFAULT_AUTO_RETRAIN_ENABLED = True
 DEFAULT_AUTO_RETRAIN_SOC_MAE = 12.0
 DEFAULT_AUTO_RETRAIN_MIN_HOURS = 24
 DEFAULT_AUTO_RETRAIN_EVAL_HOURS = 24
+DEFAULT_BIAS_CORRECTION_MAX_PERCENT = 20.0
+DEFAULT_BIAS_HALF_LIFE_HOURS = 12.0
 
 SHORT_TERM_STATISTICS_DAYS = 10
 
@@ -74,11 +78,16 @@ ATTR_HOUSE_POWER_ENTITY = "house_power_entity"
 ATTR_EMPTY_AT_EXTRAPOLATED = "empty_at_extrapolated"
 ATTR_BATTERY_POWER_KW = "battery_power_kw"
 ATTR_FORECAST_SOC_MAE = "forecast_soc_mae_24h"
+ATTR_FORECAST_SOC_BIAS = "forecast_soc_bias_24h"
 ATTR_AUTO_RETRAIN_LAST = "auto_retrain_last_at"
 
 SENSOR_TYPE_EMPTY_AT = "empty_at"
+SENSOR_TYPE_FULL_AT = "full_at"
 SENSOR_TYPE_HOURS_REMAINING = "hours_remaining"
 SENSOR_TYPE_PREDICTED_SOC = "predicted_soc"
+SENSOR_TYPE_PREDICTED_SOC_2H = "predicted_soc_2h"
+SENSOR_TYPE_PREDICTED_SOC_4H = "predicted_soc_4h"
+SENSOR_TYPE_PREDICTED_SOC_6H = "predicted_soc_6h"
 SENSOR_TYPE_NET_LOAD = "net_load_next_hour"
 SENSOR_TYPE_MIN_SOC_12H = "min_soc_12h"
 
