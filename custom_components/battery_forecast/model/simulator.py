@@ -34,6 +34,7 @@ class ForecastResult:
     predicted_soc_4h: float | None
     predicted_soc_6h: float | None
     net_load_next_hour_kwh: float | None
+    house_load_next_hour_kwh: float | None
     confidence: float
     simulation_steps: list[dict[str, Any]]
     battery_power_kw: float | None = None
@@ -172,6 +173,7 @@ def simulate_soc(
             predicted_soc_4h=None,
             predicted_soc_6h=None,
             net_load_next_hour_kwh=load_kwh_per_hour[0] if load_kwh_per_hour else None,
+            house_load_next_hour_kwh=None,
             confidence=0.0,
             simulation_steps=[],
             min_soc_next_12h=None,
@@ -249,6 +251,7 @@ def simulate_soc(
         predicted_soc_4h=predicted_soc_4h,
         predicted_soc_6h=predicted_soc_6h,
         net_load_next_hour_kwh=load_kwh_per_hour[0] if load_kwh_per_hour else None,
+        house_load_next_hour_kwh=None,
         confidence=0.0,
         battery_power_kw=None,
         simulation_steps=steps,
@@ -317,6 +320,7 @@ def _apply_soc_bias_correction(
         predicted_soc_4h=_soc_at_h(4),
         predicted_soc_6h=_soc_at_h(6),
         net_load_next_hour_kwh=result.net_load_next_hour_kwh,
+        house_load_next_hour_kwh=result.house_load_next_hour_kwh,
         confidence=result.confidence,
         simulation_steps=corrected_steps,
         battery_power_kw=result.battery_power_kw,
@@ -362,6 +366,12 @@ def run_forecast(
     )
 
     loads = predict_load_kwh(bundle, X).tolist()
+    house_load_next_hour_kwh: float | None = None
+    if bundle.feature_names and "house_kw" in bundle.feature_names and len(X) > 0:
+        house_idx = bundle.feature_names.index("house_kw")
+        house_val = float(X[0][house_idx])
+        if not np.isnan(house_val):
+            house_load_next_hour_kwh = round(max(0.0, house_val), 3)
     pv_today_kwh = read_daily_kwh(hass, config.get("pv_forecast"))
     pv_tomorrow_kwh = read_daily_kwh(hass, config.get("pv_forecast_tomorrow"))
     profile = build_pv_hourly_profile(hass, config.get("pv_power"))
@@ -419,6 +429,7 @@ def run_forecast(
                     predicted_soc_4h=result.predicted_soc_4h,
                     predicted_soc_6h=result.predicted_soc_6h,
                     net_load_next_hour_kwh=result.net_load_next_hour_kwh,
+                    house_load_next_hour_kwh=result.house_load_next_hour_kwh,
                     confidence=result.confidence,
                     battery_power_kw=result.battery_power_kw,
                     simulation_steps=result.simulation_steps,
@@ -443,6 +454,7 @@ def run_forecast(
         predicted_soc_4h=result.predicted_soc_4h,
         predicted_soc_6h=result.predicted_soc_6h,
         net_load_next_hour_kwh=result.net_load_next_hour_kwh,
+        house_load_next_hour_kwh=house_load_next_hour_kwh,
         confidence=round(confidence, 3),
         battery_power_kw=round(read_battery_power_kw(hass, config), 3),
         simulation_steps=result.simulation_steps,

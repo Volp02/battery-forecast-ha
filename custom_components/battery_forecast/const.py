@@ -89,6 +89,7 @@ SENSOR_TYPE_PREDICTED_SOC_2H = "predicted_soc_2h"
 SENSOR_TYPE_PREDICTED_SOC_4H = "predicted_soc_4h"
 SENSOR_TYPE_PREDICTED_SOC_6H = "predicted_soc_6h"
 SENSOR_TYPE_NET_LOAD = "net_load_next_hour"
+SENSOR_TYPE_HOUSE_LOAD = "house_load_next_hour"
 SENSOR_TYPE_MIN_SOC_12H = "min_soc_12h"
 
 ATTR_MIN_SOC_12H = "min_soc_next_12h"

@@ -32,6 +32,7 @@ from .const import (
     SENSOR_TYPE_FULL_AT,
     SENSOR_TYPE_HOURS_REMAINING,
     SENSOR_TYPE_MIN_SOC_12H,
+    SENSOR_TYPE_HOUSE_LOAD,
     SENSOR_TYPE_NET_LOAD,
     SENSOR_TYPE_PREDICTED_SOC,
     SENSOR_TYPE_PREDICTED_SOC_2H,
@@ -52,6 +53,7 @@ ENTITY_OBJECT_IDS: dict[str, str] = {
     SENSOR_TYPE_PREDICTED_SOC_4H: "battery_predicted_soc_4h",
     SENSOR_TYPE_PREDICTED_SOC_6H: "battery_predicted_soc_6h",
     SENSOR_TYPE_NET_LOAD: "battery_net_load_next_hour",
+    SENSOR_TYPE_HOUSE_LOAD: "battery_house_load_next_hour",
     SENSOR_TYPE_MIN_SOC_12H: "battery_min_soc_12h",
 }
 
@@ -99,6 +101,12 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key=SENSOR_TYPE_NET_LOAD,
         translation_key=SENSOR_TYPE_NET_LOAD,
+        native_unit_of_measurement="kWh",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key=SENSOR_TYPE_HOUSE_LOAD,
+        translation_key=SENSOR_TYPE_HOUSE_LOAD,
         native_unit_of_measurement="kWh",
         state_class=SensorStateClass.MEASUREMENT,
     ),
@@ -177,6 +185,8 @@ class BatteryForecastSensor(CoordinatorEntity[BatteryForecastCoordinator], Senso
             return data.predicted_soc_6h
         if key == SENSOR_TYPE_NET_LOAD:
             return data.net_load_next_hour_kwh
+        if key == SENSOR_TYPE_HOUSE_LOAD:
+            return data.house_load_next_hour_kwh
         if key == SENSOR_TYPE_MIN_SOC_12H:
             return data.min_soc_next_12h
         return None

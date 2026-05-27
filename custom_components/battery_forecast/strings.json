@@ -110,6 +110,7 @@
       "predicted_soc_4h": { "name": "Predicted SOC in 4h" },
       "predicted_soc_6h": { "name": "Predicted SOC in 6h" },
       "net_load_next_hour": { "name": "Net load next hour" },
+      "house_load_next_hour": { "name": "House load next hour" },
       "min_soc_12h": { "name": "Min SOC in 12 h" }
     }
   },

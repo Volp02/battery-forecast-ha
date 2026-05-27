@@ -112,6 +112,7 @@
       "predicted_soc_4h": { "name": "SOC-Prognose in 4h" },
       "predicted_soc_6h": { "name": "SOC-Prognose in 6h" },
       "net_load_next_hour": { "name": "Nettolast nächste Stunde" },
+      "house_load_next_hour": { "name": "Hauslast nächste Stunde" },
       "min_soc_12h": { "name": "Min. SOC in 12 h" }
     }
   },

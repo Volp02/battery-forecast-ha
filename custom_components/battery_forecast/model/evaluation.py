@@ -76,6 +76,28 @@ def _fetch_hourly_soc_sync(
     return hourly.get(entity_id, {})
 
 
+async def _fetch_hourly_soc(
+    hass: Any,
+    entity_id: str,
+    start: datetime,
+    end: datetime,
+) -> dict[datetime, float]:
+    """Fetch hourly SOC using recorder executor."""
+    from homeassistant.components.recorder import get_instance
+
+    recorder = get_instance(hass)
+    if recorder is None:
+        _LOGGER.warning("Recorder not available for SOC evaluation")
+        return {}
+    return await recorder.async_add_executor_job(
+        _fetch_hourly_soc_sync,
+        hass,
+        entity_id,
+        start,
+        end,
+    )
+
+
 async def compute_forecast_soc_mae(
     hass: Any,
     *,
@@ -89,8 +111,7 @@ async def compute_forecast_soc_mae(
     window_start = now - timedelta(hours=eval_hours)
     settle_before = now - timedelta(hours=1)
 
-    actual = await hass.async_add_executor_job(
-        _fetch_hourly_soc_sync,
+    actual = await _fetch_hourly_soc(
         hass,
         battery_soc,
         window_start - timedelta(hours=1),
@@ -135,8 +156,7 @@ async def compute_forecast_soc_bias(
     window_start = now - timedelta(hours=eval_hours)
     settle_before = now - timedelta(hours=1)
 
-    actual = await hass.async_add_executor_job(
-        _fetch_hourly_soc_sync,
+    actual = await _fetch_hourly_soc(
         hass,
         battery_soc,
         window_start - timedelta(hours=1),
